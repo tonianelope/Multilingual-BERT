@@ -15,13 +15,32 @@ Exploring Language Models and their effectinves (for German)
 [Wikitext-103]: https://www.salesforce.com/products/einstein/ai-research/the-wikitext-dependency-language-modeling-dataset/
 [Bookcorpus]: http://yknzhu.wixsite.com/mbweb
 
-## German Language Model
+## Creating a Language Model
+
+ULMFiT LM [scripts](https://github.com/fastai/fastai/tree/master/courses/dl2/imdb_scripts) for creating a LM (based on Wiki data) and fine-tuning it:
+
+- Create/Load Wiki Corpus
+- Tokenise text using [spacy](http://spacy.io/) includes fixup function <-
+- Mapp tokens to ids
+- (Pre)Train LM
+
+Further example of using LM for IMDb Sentiment Analysis with more detailed explanations/comments: [IMDb ipython](https://github.com/fastai/fastai/blob/master/courses/dl2/imdb.ipynb)
+
+### ULMFit for other languages
+
+- German [forum](https://forums.fast.ai/t/ulmfit-german/22529) [github](https://github.com/n-waves/ulmfit4de/blob/master/TRAINING.md)
+- ...
+
 ### German Corpa
 
 - [Wikipedia](http://www1.ids-mannheim.de/kl/projekte/korpora/archiv/wp.html)
 - [COSMA II](http://www.ids-mannheim.de/cosmas2/uebersicht.html)
 
-## Tasks
+
+## Tasks - Applying the Language Model
+
+### [English Tasks](./EnglishTasks.md)
+
 ### Sentiment Analysis
 #### Papers
 - [A Twitter Corpus and Benchmark Resources for German Sentiment Analysis](http://www.aclweb.org/anthology/W17-1106)
