@@ -22,6 +22,7 @@ case $1 in
 esac
 
 sudo apt-get update
+sudp apt-get install tmux htop
 
 if ! p_loc="$(type -p "$python")" || [[ -z $p_loc ]]; then
     sudo apt-get install python3.6
