@@ -1,10 +1,15 @@
 # GermLM
 Exploring Language Models and their effectinves (for German)
 
-[Timeline](https://docs.google.com/spreadsheets/d/1qDNQsrnsflI8x8Fy9NzZflGyXgI0rxfZDUDpufEVzw0/edit?usp=sharing)
-[Notes](https://docs.google.com/document/d/1VUu5cna6MblNheDGa7tRTsYjlheZEMigvjyFjUEROPE/edit?usp=sharing)
+1. [Language Models](#LM)
+2. [NLP Tasks](#Tasks)
+3. [Code](#Code)
 
-## Language Models
+- [Timeline](https://docs.google.com/spreadsheets/d/1qDNQsrnsflI8x8Fy9NzZflGyXgI0rxfZDUDpufEVzw0/edit?usp=sharing)
+- [Notes](https://docs.google.com/document/d/1VUu5cna6MblNheDGa7tRTsYjlheZEMigvjyFjUEROPE/edit?usp=sharing)
+
+## Language Models <a name="LM"></a>
+
 |Paper | LM Architecture | Corpus | Tasks |
 |------|----------------|--------|-------|
 |Universal Language Model Fine-tuning<br/> for Text Classification ([ULMFiT]) | [AWD-LSTM] | [Wikitext-103] | - Sentiment Analysis<br/>- Questino Classification <br/>- Topic classification |
@@ -20,7 +25,7 @@ Exploring Language Models and their effectinves (for German)
 
 ## Creating a Language Model
 
-ULMFiT LM [scripts](https://github.com/fastai/fastai/tree/master/courses/dl2/imdb_scripts) for creating a LM (based on Wiki data) and fine-tuning it:
+ULMFiT LM [imdb_scripts] for creating a LM (based on Wiki data) and fine-tuning it:
 
 - Create/Load Wiki Corpus
 - Tokenise text using [spacy](http://spacy.io/) includes fixup function <-
@@ -40,7 +45,7 @@ Further example of using LM for IMDb Sentiment Analysis with more detailed expla
 - [COSMA II](http://www.ids-mannheim.de/cosmas2/uebersicht.html)
 
 
-## Tasks - Applying the Language Model
+## Tasks - Applying the Language Model <a name="Tasks"></a>
 
 ### English Tasks
 
@@ -86,3 +91,14 @@ Related papers:
 
 [Twitter Corpus+Benchmark]:http://www.aclweb.org/anthology/W17-1106
 [NER Shootout]:http://aclweb.org/anthology/P18-2020.pdf
+
+
+## Code <a name="Code"></a>
+
+`gc_setup.sh` installs the [fastai] library v0.7
+`wt103.sh` downloads the pre-trained [ULMFiT] weights
+create a directory `fastai-scripts` and link it to `fastai/courses/dl2/imbd_scripts/*`
+use the scripts to train/run/eval the LM
+
+[fastai]:https://github.com/fastai/fastai
+[imdb_scripts]:https://github.com/fastai/fastai/tree/master/courses/dl2/imdb_scripts
