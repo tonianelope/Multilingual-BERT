@@ -1,6 +1,9 @@
 # GermLM
 Exploring Language Models and their effectinves (for German)
 
+[Timeline](https://docs.google.com/spreadsheets/d/1qDNQsrnsflI8x8Fy9NzZflGyXgI0rxfZDUDpufEVzw0/edit?usp=sharing)
+[Notes](https://docs.google.com/document/d/1VUu5cna6MblNheDGa7tRTsYjlheZEMigvjyFjUEROPE/edit?usp=sharing)
+
 ## Language Models
 |Paper | LM Architecture | Corpus | Tasks |
 |------|----------------|--------|-------|
@@ -39,24 +42,47 @@ Further example of using LM for IMDb Sentiment Analysis with more detailed expla
 
 ## Tasks - Applying the Language Model
 
-### [English Tasks](./EnglishTasks.md)
+### English Tasks
 
-### Sentiment Analysis
-#### Papers
-- [A Twitter Corpus and Benchmark Resources for German Sentiment Analysis](http://www.aclweb.org/anthology/W17-1106)
+| Task                  | Model       | Corpus       | Score | Paper/Source |
+|-----------------------|-------------|--------------|-------|--------------|
+| Sentiment Analysis    | Transformer | [STT-2][STT] |  91.3 | [OpenAi]     |
+|                       | biLSTM      | STT-5        |  54.7 | [ELMo]       |
+| Named Entity Rec      | biLSTM      | [CoNNL 2003] | 90.15 | [ElMo]       |
+|                       |             |              | 91.93 | [Peters.]    |
+| Natural Language Inf  | Transformer | [SNLI 2015]  |  89.9 | [OpenAi]     |
+|                       | biLSTM      |              |  88.0 | [ELMo]       |
+| Commensense Reasoning | Transformer | [ROCStories] |  86.5 | [OpenAi]     |
 
-#### Corpa 
-- German Twitter Sentiment [SB-10K](http://www.spinningbytes.com/resources/)
-- MGS corpus (link?) 
-- DAI corpus (link?) 
 
-### NER
+[STT]:https://nlp.stanford.edu/sentiment/index.html
+[CoNLL 2003]:https://www.clips.uantwerpen.be/conll2003/ner/
+[Peters.]:https://www.aclweb.org/anthology/P/P17/P17-1161.pdf
+[SNLI 2015]:https://nlp.stanford.edu/projects/snli/
+[ROCStories]:http://cs.rochester.edu/nlp/rocstories/
 
-#### Papers
-- [A Named Entity Recognition Shootout for German](http://aclweb.org/anthology/P18-2020.pdf)
-- [Modular Classifier Ensemble Architecture for Named Entity Recognition on Low Resource Systems](http://asv.informatik.uni-leipzig.de/publication/file/300/GermEval2014_ExB.pdf)
+### German Tasks
+
+| Task               | Model  | Corpus         | Score       | Paper/Source               |
+| --                 | ---    | ---            | ---         | ---                        |
+| Sentiment Analysis | CNN    | [SB-10k]       | 65.09       | [Twitter Corpus+Benchmark] |
+|                    | CNN    | MGS            | 59.90       |                            |
+|                    | SVM    | DAI            | 61.85       |                            |
+| Named Entity Rec   | biLSTM | [GermEval2014] | 81.83 (F1)* | [NER Shootout]             |
+|                    | biLSTM | [CoNNL2003]    | 82.99 (F1)  |                            |
+|                    |        |                |             |                            |
+
+Related papers:
 - [Neural Architectures for Named Entity Recognition](https://arxiv.org/pdf/1603.01360.pdf)
+- [Modular Classifier Ensemble Architecture for Named Entity Recognition on Low Resource Systems](http://asv.informatik.uni-leipzig.de/publication/file/300/GermEval2014_ExB.pdf)
 
-#### Corpa
-- [GermEval2014](https://sites.google.com/site/germeval2014ner/data)
-- [CoNLL2011](http://conll.cemantix.org/2011/data.html)
+
+*Outer chunks evaluation
+
+[SB-10K]:http://www.spinningbytes.com/resources/
+[GermEval2014]:https://sites.google.com/site/germeval2014ner/data
+[CoNLL2011]:http://conll.cemantix.org/2011/data.html
+
+
+[Twitter Corpus+Benchmark]:http://www.aclweb.org/anthology/W17-1106
+[NER Shootout]:http://aclweb.org/anthology/P18-2020.pdf
