@@ -30,6 +30,7 @@ if ! p_loc="$(type -p "$python")" || [[ -z $p_loc ]]; then
 fi
 
 # instal Anaconda
+echo "Installing Anaconda"
 wget https://repo.anaconda.com/archive/Anaconda3-5.3.1-Linux-x86_64.sh
 bash Anaconda3-5.3.1-Linux-x86_64.sh
 
@@ -39,13 +40,17 @@ pip3 install pip3 -U
 conda update conda
 
 if "$gpu"; then
+   echo "Installing Fastai GPU ..."
    git clone https://github.com/fastai/fastai.git
    cd fastai
    conda env create -f environment.yml
+   echo "Activating Fastai env"
    conda activate fastai
 else
+    echo "Installing Fastai CPU ..."
     git clone https://github.com/fastai/fastai.git
     cd fastai
     conda env create -f environment-cpu.yml
+    echo "Activating Fastai env"
     conda activate fastai-cpu
 fi

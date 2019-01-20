@@ -76,13 +76,12 @@ Further example of using LM for IMDb Sentiment Analysis with more detailed expla
 | Named Entity Rec   | biLSTM | [GermEval2014] | 81.83 (F1)* | [NER Shootout]             |
 |                    | biLSTM | [CoNNL2003]    | 82.99 (F1)  |                            |
 |                    |        |                |             |                            |
+*Outer chunks evaluation
 
 Related papers:
 - [Neural Architectures for Named Entity Recognition](https://arxiv.org/pdf/1603.01360.pdf)
 - [Modular Classifier Ensemble Architecture for Named Entity Recognition on Low Resource Systems](http://asv.informatik.uni-leipzig.de/publication/file/300/GermEval2014_ExB.pdf)
 
-
-*Outer chunks evaluation
 
 [SB-10K]:http://www.spinningbytes.com/resources/
 [GermEval2014]:https://sites.google.com/site/germeval2014ner/data
@@ -98,7 +97,7 @@ Related papers:
 `gc_setup.sh` installs the [fastai] library v0.7
 `wt103.sh` downloads the pre-trained [ULMFiT] weights
 create a directory `fastai-scripts` and link it to `fastai/courses/dl2/imbd_scripts/*`
-use the scripts to train/run/eval the LM
+use the [imdb_scripts] to train/run/eval the LM
 
 [fastai]:https://github.com/fastai/fastai
 [imdb_scripts]:https://github.com/fastai/fastai/tree/master/courses/dl2/imdb_scripts
