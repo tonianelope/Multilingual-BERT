@@ -15,7 +15,7 @@ case $1 in
         exit
         ;;
     -g|-gpu)
-        cpu_ext = ''
+        cpu_ext=''
         echo "GPU version selected\n"
         ;;
     -c|-cpu)
@@ -28,6 +28,7 @@ esac
 # install fastai v0.7  (https://forums.fast.ai/t/fastai-v0-7-install-issues-thread/24652)
 pip install pip -U
 conda update conda
+conda install python=3.6
 sudo ln -s /home/tonianelope/anaconda3/etc/profile.d/conda.sh /etc/profile.d/conda.sh
 
 env_file = "environment${cpu_ext}.yml"
@@ -36,7 +37,7 @@ env_name = "fastai${cpu_ext}"
 echo "Installing Fastai v0.7 ..."
 git clone https://github.com/fastai/fastai.git
 cd fastai
-conda env create -f env_file
+conda env create -f env_file python=3.6
 echo "Activating Fastai env"
 conda activate env_name
 
