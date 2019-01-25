@@ -15,12 +15,12 @@ case $1 in
         exit
         ;;
     -g|-gpu)
-        gpu=t
+        cpu_ext = ''
         echo "GPU version selected\n"
         ;;
     -c|-cpu)
-        cpu=t
-        echo "GPU version selected\n"
+        cpu_ext='-cpu'
+        echo "CPU version selected\n"
         ;;
 
 esac
@@ -30,21 +30,19 @@ pip install pip -U
 conda update conda
 sudo ln -s /home/tonianelope/anaconda3/etc/profile.d/conda.sh /etc/profile.d/conda.sh
 
-if [ "$gpu" ]; then
-    echo "Installing Fastai GPU ..."
-    git clone https://github.com/fastai/fastai.git
-    cd fastai
-    conda env create -f environment.yml
-    echo "Activating Fastai env"
-    conda activate fastai
-else
-    echo "Installing Fastai CPU ..."
-    git clone https://github.com/fastai/fastai.git
-    cd fastai
-    conda env create -f environment-cpu.yml
-    echo "Activating Fastai env"
-    conda activate fastai-cpu
-fi
+env_file = "environment${cpu_ext}.yml"
+env_name = "fastai${cpu_ext}"
+
+echo "Installing Fastai v0.7 ..."
+git clone https://github.com/fastai/fastai.git
+cd fastai
+conda env create -f env_file
+echo "Activating Fastai env"
+conda activate env_name
+
+# hack to add fastai to conda sys path (for python scripts)
+mkdir -p /home/tonianelope/anaconda3/envs/"${env_name}"/python3.6/fastai/
+cp -r /home/tonianelope/GermLM/fastai/courses/dl2/fastai/* /home/tonianelope/anaconda3/envs/"${env_name}"/python3.6/fastai/
 
 cd courses/dl2/imdb_scripts/
 
@@ -58,4 +56,3 @@ wget -P ./data/wt103/tmp/itos.pkl http://files.fast.ai/models/wt103/itos_wt103.p
 
 curl -O http://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz
 tar -xzf aclImdb_v1.tar.gz -C data/
-
