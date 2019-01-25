@@ -31,8 +31,8 @@ conda update conda
 conda install python=3.6
 sudo ln -s /home/tonianelope/anaconda3/etc/profile.d/conda.sh /etc/profile.d/conda.sh
 
-env_file = "environment${cpu_ext}.yml"
-env_name = "fastai${cpu_ext}"
+env_file="environment${cpu_ext}.yml"
+env_name="fastai${cpu_ext}"
 
 echo "Installing Fastai v0.7 ..."
 git clone https://github.com/fastai/fastai.git
