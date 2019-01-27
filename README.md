@@ -10,18 +10,38 @@ Exploring Language Models and their effectinves (for German)
 
 ## Language Models <a name="LM"></a>
 
-|Paper | LM Architecture | Corpus | Tasks |
-|------|----------------|--------|-------|
-|Universal Language Model Fine-tuning<br/> for Text Classification ([ULMFiT]) | [AWD-LSTM] | [Wikitext-103] | - Sentiment Analysis<br/>- Questino Classification <br/>- Topic classification |
-|Deep contextualized word<br/> representations ([ELMo]) | biLM | 1B Word Benchmark | - Question Answering<br/>- Textual entailment<br/>- Semantic role labeling <br/>- Coreference resolution<br/>- Named entity extraction<br/>- Sentiment analysis |
-|Improving Language Understanding<br/>by Generative Pre-Training ([OpenAi])| Transformer | [Bookcorpus] | - Natural Language Inference  <br/>- Question Answering <br/>- Sentence similarity<br/>- Classificatino
+| Paper                                                                                | LM Architecture | Corpus                   | 
+|--------------------------------------------------------------------------------------|-----------------|--------------------------|
+| Universal Language Model Fine-tuning<br/> for Text Classification ([ULMFiT])         | [AWD-LSTM]      | [Wikitext-103]           |
+| Deep contextualized word<br/> representations ([ELMo])                               | biLM            | 1B Word Benchmark        |
+| Improving Language Understanding<br/>by Generative Pre-Training ([OpenAi])           | Transformer     | [Bookcorpus]             |
+| BERT: Pre-training of Deep Bidirectional<br/>Transformers for Language Understanding | biTransformer   | Wikipedia + [Bookcorpus] |
 
+[BERT]:https://arxiv.org/pdf/1810.04805.pdf
 [ULMFiT]: https://arxiv.org/pdf/1801.06146.pdf
 [ELMo]: https://arxiv.org/abs/1802.05365
 [OpenAi]: https://s3-us-west-2.amazonaws.com/openai-assets/research-covers/language-unsupervised/language_understanding_paper.pdf
 [AWD-LSTM]: TODO
 [Wikitext-103]: https://www.salesforce.com/products/einstein/ai-research/the-wikitext-dependency-language-modeling-dataset/
 [Bookcorpus]: http://yknzhu.wixsite.com/mbweb
+
+| Task                     | Dataset     | [ULMFiT] |    [ELMo] |  [OpenAi] |    [BERT] |     pSoTA |
+| ---                      | ---         |      --- |       --- |       --- |       --- |       --- |
+| Textual Entailment       | SNLI        |          |           |      89.9 |           |      89.3 |
+|                          | MNLI (m/mm) |          | 76.4/76.1 | 82.1/81.4 | 86.7/85.9 | 80.6/80.1 |
+|                          | QNLI        |          |      79.9 |      88.1 |      91.1 |      82.3 |
+|                          | RTE         |          |      56.8 |      56.0 |      70.1 |      61.7 |
+| Semantic Similarity      | STS-B       |          |      73.3 |      80.0 |      86.5 |      81.0 |
+|                          | QQP         |          |      64.8 |      70.3 |      72.1 |      66.1 |
+|                          | MRPC        |          |      84.9 |      82.3 |      89.3 |      86.0 |
+| Sentiment Analysis       | SST-2       |          |      94.9 |      91.3 |      94.9 |      93.2 |
+|                          | IMDb        |     95.4 |           |           |           |      94.1 |
+|                          | TREC-6      |     96.4 |           |           |           |      96.1 |
+| Linguistic Acceptability | CoLA        |          |      36.0 |      45.4 |      60.5 |      35.0 |
+| Question Answering       | SQuAD       |          | (85.8)dev |           |      93.2 |      91.7 |
+| Named Entity Recognition | CoNNL-2003  |          |      92.2 |           |      92.8 |      92.6 |
+| Common sense inference   | SWAG        |          |      59.2 |           |      86.3 |      52.7 |
+| Multi Task Benchmark     | GLUE        |          |           |           |           |           |
 
 ## Creating a Language Model
 
