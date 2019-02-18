@@ -32,16 +32,48 @@ def get_texts(path):
     print('{} complete'.format(path))
     return np.array(texts),np.array(labels)
 
-trn_texts,trn_labels = get_texts(PATH/'train')
+np.random.seed(42)
+def shuffle(texts, lables):
+    print('Shuffeling... ',end='')
+    idx = np.random.permutation(len(texts))
+    texts = texts[idx]
+    labels = labels[idx]
+    print('Done')
+    return texts, labels
+
+def save_df(texts, lables, file_name, unsup=False):
+    print(len(texts))
+    col_names = ['labels','text']
+    path = CLAS_PATH
+
+    (CLAS_PATH/'classes.txt').open('w', encoding='utf-8').writelines(f'{o}\n' for o in CLASSES)
+
+    if unsup:
+        trn_texts,val_texts = sklearn.model_selection.train_test_split(
+            np.concatenate([trn_texts,val_texts]), test_size=0.1)
+        lables = [0]*len(texts)
+        path = LM_PATH
+    else:
+        df = df[df['labels']!=2]
+
+    df = pd.DataFrame({'text':texts, 'labels':labels}, columns=col_names)
+
+    df_trn.to_csv(path/file_name, header=False, index=False)
+
+
+trn = get_texts(PATH/'train')
+trn = shuffle(*trn)
+save_df()
+
+
 val_texts,val_labels = get_texts(PATH/'test')
+
 
 print(len(trn_texts),len(val_texts))
 
-col_names = ['labels','text']
-
 # Shuffel reviews
 print('Shuffeling... ', end='')
-np.random.seed(42)
+
 trn_idx = np.random.permutation(len(trn_texts))
 val_idx = np.random.permutation(len(val_texts))
 

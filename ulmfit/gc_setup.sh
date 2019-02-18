@@ -1,7 +1,8 @@
 #!/bin/sh
 
 sudo apt-get update
-sudo apt-get install tmux htop
+sudo apt-get install tmux htop bzip2
+# sudo apt-get install bzip2
 
 ## update to instlall for python 3.6 (e.g if 2.x installed)
 python3 -V foo >/dev/null 2>&1 || {
@@ -16,3 +17,4 @@ conda -V foo >/dev/null 2>&1 || {
     wget https://repo.anaconda.com/archive/Anaconda3-5.3.1-Linux-x86_64.sh
     bash Anaconda3-5.3.1-Linux-x86_64.sh
 }
+
