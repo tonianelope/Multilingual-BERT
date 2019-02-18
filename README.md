@@ -59,8 +59,8 @@ Further example of using LM for IMDb Sentiment Analysis with more detailed expla
 
 ### ULMFit for other languages
 
-- German [forum](https://forums.fast.ai/t/ulmfit-german/22529) [github](https://github.com/n-waves/ulmfit4de/blob/master/TRAINING.md)
-- ...
+- German **[forum](https://forums.fast.ai/t/ulmfit-german/22529)/[github](https://github.com/n-waves/ulmfit4de/blob/master/TRAINING.md)** fv0.7
+- French **[github](https://github.com/poppingtonic/dl-studies/blob/master/french-wiki-lm.ipynb)** fv1
 
 ### German Corpa
 
