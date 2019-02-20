@@ -45,7 +45,7 @@ def conll_to_csv(csv_dir, file_names:list):
             data = read_conll_data(file)
             df = pd.DataFrame(data, columns=['labels', 'text'])
 
-            # csv_path = csv_dir / (file.name + '.csv')
+            csv_path = csv_dir / (file.name + '.csv')
             df.to_csv(csv_path, index=False)
             print(f'Wrote {csv_path}')
         else:
