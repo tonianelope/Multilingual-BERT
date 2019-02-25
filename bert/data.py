@@ -19,9 +19,6 @@ def read_conll_data(input_file:str):
                 words.append('')
                 continue
 
-            if len(contends) == 0 and not len(words):
-                words.append("")
-
             if len(contends) == 0 and words[-1] == '.':
                 l = ' '.join([label for label in labels if len(label) > 0])
                 w = ' '.join([word for word in words if len(word) > 0])
@@ -30,7 +27,7 @@ def read_conll_data(input_file:str):
                 labels = []
                 continue
             words.append(word)
-            labels.append(label.replace("-", "_"))
+            labels.append(label)
         return lines
 
 def conll_to_csv(csv_dir, file_names:list):
