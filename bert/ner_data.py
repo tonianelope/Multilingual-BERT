@@ -1,35 +1,45 @@
 from dataclasses import dataclass
+from pathlib import Path
 
 from tqdm import tqdm
 
 import torch
+from conll_preprocessing import read_conll_data
+from fastai.basic_data import DataBunch
 from fastai.text import BaseTokenizer, TextDataBunch, Tokenizer
 from pytorch_pretrained_bert.tokenization import BertTokenizer
-from torch.utils.data import DataLoader, RandomSampler, TensorDataset
+from torch.utils.data import DataLoader, Dataset, RandomSampler, TensorDataset
 
 # TODO create DataBunch ...
 
+TRAIN = 'train'
+DEV = 'dev'
+TEST = 'test'
+
+
+class BertNerDataset(Dataset):
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def __getitem__(self, index):
+        xb = tuple(tensor[index] for tensor in self.x)
+        yb = tuple(tensor[index] for tensor in self.y)
+        return (xb, yb)
+
+    def __len__(self):
+        return self.x[0].size(0)
+
+
 @dataclass
 class InputFeatures(object):
-    input_ids :list
-    input_mask :list
-    segment_ids :list
-    label_ids :list
+    input_ids :list    # input sentence as token ids
+    input_mask :list   # mask length of input sentence (cause padding)
+    segment_ids :list  # ids of sent A & B
+    label_ids :list    # same as input but for labels
     label_mask :list
 
-    '''
-`input_ids`: a torch.LongTensor of shape [batch_size, sequence_length]
-            with the word token indices in the vocabulary(see the tokens preprocessing logic in the scripts
-            `extract_features.py`, `run_classifier.py` and `run_squad.py`)
-        `token_type_ids`: an optional torch.LongTensor of shape [batch_size, sequence_length] with the token
-            types indices selected in [0, 1]. Type 0 corresponds to a `sentence A` and type 1 corresponds to
-            a `sentence B` token (see BERT paper for more details).
-        `attention_mask`: an optional torch.LongTensor of shape [batch_size, sequence_length] with indices
-            selected in [0, 1]. It's a mask to be used if the input sequence length is smaller than the max
-            input sequence length in the current batch. It's the mask that we typically use for attention when
-            a batch has varying length sentences.
-        `output_all_encoded_layers`: boolean which controls the content of the `encoded_layers` output as described below. Default: `True`.
-    '''
 
 def convert_sentence(text:list, labels:list, tokenizer, max_seq_len:int):
     "Convert a list of tokens and their corresponding labels"
@@ -102,16 +112,49 @@ def convert_data(data :list, tokenizer, label2idx=None, max_seq_len=424, pad='[P
 
     return features
 
-def dataloader(data:list, tokenizer, batch_size):
-    features = convert_data(data, tokenizer)
-    all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
-    all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
-    all_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
-    all_label_ids = torch.tensor([f.label_ids for f in features], dtype=torch.long)
-    all_label_mask = torch.tensor([f.label_mask for f in features], dtype=torch.long)
+def get_data_bunch(data_bunch_path:Path, files:dict):
+    # TODO pass path via input
+    DATA_PATH = Path('./data/conll-2003/eng')
+    DATA_PATH.mkdir(parents=True, exist_ok=True)
+
+    CSV_PATH = Path('./data/conll-2003/csv')
+    CSV_PATH.mkdir(parents=True, exist_ok=True)
+
+    lower_case = True
+
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=lower_case)
+
+    # TODO merge for loops?
+    features = {}
+    for key in files:
+        data = read_conll_data(DATA_PATH/files[key])
+        data = data[:10] if key!=TRAIN else data[:50]
+        features[key] = convert_data(data, tokenizer, max_seq_len=512)
+
+    batch_size = 32
+    dls = {}
+    for key in files:
+        all_input_ids = torch.tensor([f.input_ids for f in features[key]])
+        all_input_mask = torch.tensor([f.input_mask for f in features[key]])
+        all_segment_ids = torch.tensor([f.segment_ids for f in features[key]])
+        all_label_ids = torch.tensor([f.label_ids for f in features[key]])
+        all_label_mask = torch.tensor([f.label_mask for f in features[key]])
+
+        print(len(all_label_ids))
+        x = [all_input_ids, all_segment_ids, all_input_mask]
+        y = [all_label_ids, all_label_mask]
+
+        data = BertNerDataset(x, y)
+        sampler = RandomSampler(data)
+        batch_size = 32
+        dls[key] = DataLoader(data, sampler=sampler, batch_size=batch_size)
+
+    dataBunch = DataBunch(
+        train_dl= dls[TRAIN],
+        valid_dl= dls[DEV],
+        test_dl = dls[TEST],
+        path = data_bunch_path
+    )
     
-    # all_predict_mask = torch.ByteTensor([f.predict_mask for f in features])
-    # all_one_hot_labels = torch.tensor([f.one_hot_labels for f in features], dtype=torch.float)
-    data = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_label_ids, all_label_mask) # all_predict_mask, all_one_hot_labels)
-    sampler = RandomSampler(data)
-    return DataLoader(data, sampler=sampler, batch_size=batch_size)
+    # dataBunch.save() TODO figure out the issue with saving??
+    return dataBunch
