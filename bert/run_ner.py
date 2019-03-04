@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import fire
+from fastai.basic_train import Learner
 from learner import BertForNER, ner_loss
 from ner_data import DEV, TEST, TRAIN, get_data_bunch
 from optimizer import BertAdam
