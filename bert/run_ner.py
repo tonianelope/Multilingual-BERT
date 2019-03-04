@@ -25,7 +25,7 @@ def run_ner():
     learn.lr_find()
     learn.recorder.plot(skip_end=15)
 
-    learn.fit(7, 0.003)
+    learn.fit(7, 1e-05)
 
 if __name__ == '__main__':
     fire.Fire(run_ner)
