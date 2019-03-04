@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 from tqdm import tqdm
 
 import torch
@@ -34,12 +35,12 @@ class BertNerDataset(Dataset):
 
 @dataclass
 class InputFeatures(object):
-    input_ids :list    # input sentence as token ids
-    input_mask :list   # mask length of input sentence (cause padding)
-    segment_ids :list  # ids of sent A & B
-    label_ids :list    # same as input but for labels
+    input_ids :list      # input sentence as token ids
+    input_mask :list     # mask length of input sentence (cause padding)
+    segment_ids :list    # ids of sent A & B
+    label_ids :list      # same as input but for labels
     label_mask :list
-
+    one_hot_labels :list # one hot encoded labels for loss calculation
 
 def convert_sentence(text:list, labels:list, tokenizer, max_seq_len:int):
     "Convert a list of tokens and their corresponding labels"
@@ -76,32 +77,35 @@ def convert_sentence(text:list, labels:list, tokenizer, max_seq_len:int):
 def convert_data(data :list, tokenizer, label2idx=None, max_seq_len=424, pad='[PAD]'):
     if label2idx is None:
         label2idx = {pad: 0, '[CLS]': 1, '[SEP]': 2}
+        label_list = ['O', 'B-PER', 'I-PER', 'B-ORG', 'I-ORG', 'B-LOC', 'I-LOC', 'B-MISC', 'I-MISC']
+        for l in label_list:
+            label2idx[l] = len(label2idx)
 
     features = []
 
     for idx, (labels, text) in tqdm(enumerate(data), total=len(data)):
-        bert_tokens, bert_labels = convert_sentence(text, labels, tokenizer, max_seq_len)
+        bert_tokens, bert_labels, = convert_sentence(text, labels, tokenizer, max_seq_len)
 
         input_ids = tokenizer.convert_tokens_to_ids(bert_tokens)
         labels = bert_labels # TODO why uncommented????
-        for l in labels:
-            if l not in label2idx:
-                # print(f'new label {l}')
-                label2idx[l] = len(label2idx)
         label_ids = [label2idx[l] for l in labels]
 
         input_mask = [1] * len(input_ids) + [0] * (max_seq_len - len(input_ids))
-        label_mask = [1] * len(label_ids) + [0] * (max_seq_len - len(label_ids))
+        label_mask =[0] + [1] * (len(label_ids)-2) + [0] * (max_seq_len - len(label_ids)+1)
         segment_ids = [0] * max_seq_len # all sent A no sent B
         label_ids += [label2idx[pad]] * (max_seq_len - len(label_ids))
         input_ids += [0] * (max_seq_len - len(input_ids))
+
+        # print(len(label2idx))
+        one_hot_labels = np.eye(len(label2idx), dtype=np.float32)[label_ids]
 
         feature = InputFeatures(
             input_ids=input_ids,
             input_mask=input_mask,
             segment_ids=segment_ids,
             label_ids=label_ids,
-            label_mask =label_mask
+            label_mask =label_mask,
+            one_hot_labels =one_hot_labels
         )
         features.append(feature)
 
@@ -109,10 +113,10 @@ def convert_data(data :list, tokenizer, label2idx=None, max_seq_len=424, pad='[P
         assert len(input_ids) == max_seq_len
         assert len(input_ids) == max_seq_len
         assert len(input_ids) == max_seq_len
-
+    print(label2idx)
     return features
 
-def get_data_bunch(data_bunch_path:Path, files:dict):
+def get_data_bunch(data_bunch_path:Path, files:dict, batch_size=32):
     # TODO pass path via input
     DATA_PATH = Path('./data/conll-2003/eng')
     DATA_PATH.mkdir(parents=True, exist_ok=True)
@@ -131,22 +135,22 @@ def get_data_bunch(data_bunch_path:Path, files:dict):
         data = data[:10] if key!=TRAIN else data[:50]
         features[key] = convert_data(data, tokenizer, max_seq_len=512)
 
-    batch_size = 32
     dls = {}
     for key in files:
         all_input_ids = torch.tensor([f.input_ids for f in features[key]])
         all_input_mask = torch.tensor([f.input_mask for f in features[key]])
         all_segment_ids = torch.tensor([f.segment_ids for f in features[key]])
+        all_one_hot_labels = torch.tensor([f.one_hot_labels for f in features[key]])
+
         all_label_ids = torch.tensor([f.label_ids for f in features[key]])
         all_label_mask = torch.tensor([f.label_mask for f in features[key]])
 
         print(len(all_label_ids))
-        x = [all_input_ids, all_segment_ids, all_input_mask]
+        x = [all_input_ids, all_segment_ids, all_input_mask, all_one_hot_labels]
         y = [all_label_ids, all_label_mask]
 
         data = BertNerDataset(x, y)
         sampler = RandomSampler(data)
-        batch_size = 32
         dls[key] = DataLoader(data, sampler=sampler, batch_size=batch_size)
 
     dataBunch = DataBunch(
@@ -155,6 +159,6 @@ def get_data_bunch(data_bunch_path:Path, files:dict):
         test_dl = dls[TEST],
         path = data_bunch_path
     )
-    
+
     # dataBunch.save() TODO figure out the issue with saving??
     return dataBunch
