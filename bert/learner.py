@@ -10,7 +10,6 @@ def ner_loss(output, *ys):
     # num_labels = 12 # TODO might be off
     # hidden2label = torch.nn.Linear(hidden_size, num_labels)
     # logits = hidden2label(bert_layer)
-    print(output)
     return output
 
 class BertForNER(BertPreTrainedModel):

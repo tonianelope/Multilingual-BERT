@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import fire
-from fastai.basic_train import Learner
+from learner import BertForNER, ner_loss
 from ner_data import DEV, TEST, TRAIN, get_data_bunch
 from optimizer import BertAdam
 from pytorch_pretrained_bert import BertModel
@@ -20,12 +20,12 @@ def run_ner():
     data = get_data_bunch(DATA_BUNCH_PATH, ENG)
     # data = load_data(DATA_BUNCH_PATH)
 
-    model = BertModel.from_pretrained('bert-base-uncased')
-    learn = Learner(data, model, BertAdam)
+    model = BertForNER.from_pretrained('bert-base-uncased', num_labels=12)
+    learn = Learner(data, model, BertAdam, loss_func=ner_loss)
     learn.lr_find()
     learn.recorder.plot(skip_end=15)
 
-    learn.fit(1, 0.003)
+    learn.fit(7, 0.003)
 
 if __name__ == '__main__':
     fire.Fire(run_ner)
