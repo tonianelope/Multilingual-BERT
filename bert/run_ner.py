@@ -17,14 +17,12 @@ def run_ner():
     DATA_BUNCH_PATH = Path('./data/conll-2003/data_bunch')
     DATA_BUNCH_PATH.mkdir(parents=True, exist_ok=True)
 
-    # if [p for f in DATA_BUNCH_PATH.rglob('*') if p.is_file()]:
-    data = get_data_bunch(DATA_BUNCH_PATH, ENG)
-    # data = load_data(DATA_BUNCH_PATH)
+    data = get_data_bunch(DATA_BUNCH_PATH, ENG, batch_size=1)
 
     model = BertForNER.from_pretrained('bert-base-uncased', num_labels=12)
     learn = Learner(data, model, BertAdam, loss_func=ner_loss)
-    learn.lr_find()
-    learn.recorder.plot(skip_end=15)
+    # learn.lr_find()
+    # learn.recorder.plot(skip_end=15)
 
     learn.fit(7, 1e-05)
 
