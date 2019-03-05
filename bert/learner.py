@@ -1,4 +1,5 @@
 import torch
+from ner_data import VOCAB
 # from fastai.basic_train import Learner, LearnerCallback
 from pytorch_pretrained_bert.modeling import BertModel, BertPreTrainedModel
 
@@ -14,27 +15,43 @@ def ner_loss(output, *ys):
 
 class BertForNER(BertPreTrainedModel):
 
-    def __init__(self, config, num_labels):
+    def __init__(self, config):
         super(BertForNER, self).__init__(config)
-        self.num_labels = num_labels
+        self.num_labels = len(VOCAB)
         self.bert = BertModel(config)
         self.dropout = torch.nn.Dropout(0.2)
-        self.hidden2label = torch.nn.Linear(config.hidden_size, num_labels)
+        self.hidden2label = torch.nn.Linear(config.hidden_size, self.num_labels)
         self.apply(self.init_bert_weights)
 
-    def forward(self, input_ids, segment_ids, input_mask, one_hot_labels=None):
+    def forward(self, input_ids, segment_ids, input_mask):
         bert_layer, _ = self.bert(input_ids, segment_ids, input_mask, output_all_encoded_layers=False)
         # if one_hot_labels is not None:
         #     bert_layer = self.dropout(bert_layer) # TODO comapre to without dropout
         logits = self.hidden2label(bert_layer)
+        y_hat = logits.argmax(-1)
 
-        if one_hot_labels is not None:
-            p = torch.nn.functional.softmax(logits, -1)
-            losses = -torch.log(torch.sum(one_hot_labels * p, -1))
-            # losses = torch.masked_select(losses, predict_mask) # TODO compare with predict mask
-            return torch.sum(losses)
-        else:
-            return logits
+        return logits, y_hat
+
+def ner_loss_func(out, *ys, cross_ent=False):
+    print(ys)
+    logits, y_hat = out
+    one_hot_labels, label_mask = ys
+    print(one_hot_labels.size())
+    print(label_mask.size())
+    print(logits.size())
+    print(y_hat.size())
+
+    if cross_ent: # use torch cross entropy loss
+        logits.view(-1, logits.shape[-1])
+        y = ys[0].view(-1)
+        fc =  torch.nn.CrossEntropyLoss(ignore_index=0)
+        return fc(logits, *ys)
+
+    else:
+        p = torch.nn.functional.softmax(logits, -1)
+        losses = -torch.log(torch.sum(one_hot_labels * p, -1))
+        # losses = torch.masked_select(losses, predict_mask) # TODO compare with predict mask
+        return torch.sum(losses)
 
 # class NERLearner(Learner):
 

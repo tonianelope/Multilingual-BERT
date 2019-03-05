@@ -11,12 +11,14 @@ from fastai.text import BaseTokenizer, TextDataBunch, Tokenizer
 from pytorch_pretrained_bert.tokenization import BertTokenizer
 from torch.utils.data import DataLoader, Dataset, RandomSampler, TensorDataset
 
-# TODO create DataBunch ...
+PAD = '[PAD]'
+VOCAB = (PAD, 'O', 'I-LOC', 'B-PER', 'I-PER', 'I-ORG', 'I-MISC', 'B-MISC', 'B-LOC', 'B-ORG')
+label2idx = {tag: idx for idx, tag in enumerate(VOCAB)}
+idx2label = {idx: tag for idx, tag in enumerate(VOCAB)}
 
 TRAIN = 'train'
 DEV = 'dev'
 TEST = 'test'
-
 
 class BertNerDataset(Dataset):
 
@@ -45,7 +47,7 @@ class InputFeatures(object):
 def convert_sentence(text:list, labels:list, tokenizer, max_seq_len:int):
     "Convert a list of tokens and their corresponding labels"
     bert_tokens = [ "[CLS]" ]
-    bert_labels = [ "[CLS]" ]
+    bert_labels = [ PAD ]
 
     orig_tokens = str(text).split()
     labels = labels.split()
@@ -71,15 +73,10 @@ def convert_sentence(text:list, labels:list, tokenizer, max_seq_len:int):
         bert_labels.extend(cur_labels)
 
     bert_tokens.append("[SEP]")
-    bert_labels.append("[SEP]")
+    bert_labels.append( PAD )
     return bert_tokens, bert_labels
 
-def convert_data(data :list, tokenizer, label2idx=None, max_seq_len=424, pad='[PAD]'):
-    if label2idx is None:
-        label2idx = {pad: 0, '[CLS]': 1, '[SEP]': 2}
-        label_list = ['O', 'B-PER', 'I-PER', 'B-ORG', 'I-ORG', 'B-LOC', 'I-LOC', 'B-MISC', 'I-MISC']
-        for l in label_list:
-            label2idx[l] = len(label2idx)
+def convert_data(data :list, tokenizer, max_seq_len=424):
 
     features = []
 
@@ -93,7 +90,7 @@ def convert_data(data :list, tokenizer, label2idx=None, max_seq_len=424, pad='[P
         input_mask = [1] * len(input_ids) + [0] * (max_seq_len - len(input_ids))
         label_mask =[0] + [1] * (len(label_ids)-2) + [0] * (max_seq_len - len(label_ids)+1)
         segment_ids = [0] * max_seq_len # all sent A no sent B
-        label_ids += [label2idx[pad]] * (max_seq_len - len(label_ids))
+        label_ids += [label2idx[PAD]] * (max_seq_len - len(label_ids))
         input_ids += [0] * (max_seq_len - len(input_ids))
 
         # print(len(label2idx))
@@ -113,7 +110,6 @@ def convert_data(data :list, tokenizer, label2idx=None, max_seq_len=424, pad='[P
         assert len(input_ids) == max_seq_len
         assert len(input_ids) == max_seq_len
         assert len(input_ids) == max_seq_len
-    print(label2idx)
     return features
 
 def get_data_bunch(data_bunch_path:Path, files:dict, batch_size=32):
@@ -132,7 +128,7 @@ def get_data_bunch(data_bunch_path:Path, files:dict, batch_size=32):
     features = {}
     for key in files:
         data = read_conll_data(DATA_PATH/files[key])
-        data = data[:10] if key!=TRAIN else data[:50]
+        data = data[:5] if key!=TRAIN else data[:10]
         features[key] = convert_data(data, tokenizer, max_seq_len=512)
 
     dls = {}
@@ -146,8 +142,8 @@ def get_data_bunch(data_bunch_path:Path, files:dict, batch_size=32):
         all_label_mask = torch.tensor([f.label_mask for f in features[key]])
 
         print(len(all_label_ids))
-        x = [all_input_ids, all_segment_ids, all_input_mask, all_one_hot_labels]
-        y = [all_label_ids, all_label_mask]
+        x = [all_input_ids, all_segment_ids, all_input_mask]
+        y = [all_one_hot_labels, all_label_mask]
 
         data = BertNerDataset(x, y)
         sampler = RandomSampler(data)
