@@ -27,9 +27,10 @@ class BertNerDataset(Dataset):
         self.y = y
 
     def __getitem__(self, index):
-        xb = tuple(tensor[index] for tensor in self.x)
-        yb = tuple(tensor[index] for tensor in self.y)
-        return (xb, yb)
+        xb = tuple(tensor[0] for tensor in self.x)
+        yb = self.y[0]# [tensor[index] for tensor in self.y]
+        print('DATA:', xb[0][:10])
+        return xb, yb
 
     def __len__(self):
         return self.x[0].size(0)
@@ -128,7 +129,7 @@ def get_data_bunch(data_bunch_path:Path, files:dict, batch_size=32):
     features = {}
     for key in files:
         data = read_conll_data(DATA_PATH/files[key])
-        data = data[:5] if key!=TRAIN else data[:10]
+        data = data[:1] # if key!=TRAIN else data[:1]
         features[key] = convert_data(data, tokenizer, max_seq_len=512)
 
     dls = {}
@@ -143,10 +144,10 @@ def get_data_bunch(data_bunch_path:Path, files:dict, batch_size=32):
 
         print(len(all_label_ids))
         x = [all_input_ids, all_segment_ids, all_input_mask]
-        y = [all_one_hot_labels, all_label_mask]
+        y = all_one_hot_labels #, all_label_mask]
 
         data = BertNerDataset(x, y)
-        sampler = RandomSampler(data)
+        sampler = None#RandomSampler(data)
         dls[key] = DataLoader(data, sampler=sampler, batch_size=batch_size)
 
     dataBunch = DataBunch(
