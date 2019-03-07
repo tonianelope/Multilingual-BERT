@@ -46,7 +46,7 @@ class NerDataset(Dataset):
 
         assert max_seq_len == len(input_ids) == len(segment_ids) == len(one_hot_labels)
 
-        return (input_ids, segment_ids, input_mask), (one_hot_labels, label_mask)
+        return (input_ids, segment_ids, input_mask), (one_hot_labels, label_ids, label_mask)
 
     def get_bert_tl(self, index):
         "Convert a list of tokens and their corresponding labels"
@@ -65,8 +65,8 @@ class NerDataset(Dataset):
                 label = label.split("-")[1]
                 prefix[0] = 'I-' if label==prev_label else 'B-'
                 prefix[1] = 'I-'
-                prev_label = label
-                cur_tokens = self.tokenizer.tokenize(orig_token)
+            prev_label = label
+            cur_tokens = self.tokenizer.tokenize(orig_token)
             if not cur_tokens: print(orig_token)
             cur_labels = [f'{prefix[0]}{label}']+[f'{prefix[1]}{label}']*(len(cur_tokens)-1)
 
@@ -80,6 +80,8 @@ class NerDataset(Dataset):
         bert_tokens.append("[SEP]")
         bert_labels.append( PAD )
         return bert_tokens, bert_labels
+
+# TODO compare difference between broken up tokens (e.g. predict and not predict)
 
 # from https://github.com/sberbank-ai/ner-bert/blob/master/examples/conll-2003.ipynb
 def read_conll_data(input_file:str):
