@@ -1,7 +1,11 @@
+import logging
+
 import numpy as np
 
 import torch
 from fastai.callback import Callback
+from fastai.core import is_listy
+from fastai.torch_core import add_metrics, num_distrib
 from ner_data import VOCAB
 from pytorch_pretrained_bert.modeling import BertModel, BertPreTrainedModel
 
@@ -23,10 +27,10 @@ class BertForNER(BertPreTrainedModel):
         #     bert_layer = self.dropout(bert_layer) # TODO comapre to without dropout
         logits = self.hidden2label(bert_layer)
         y_hat = logits.argmax(-1)
-        #print(f'Y_hat {y_hat.size()}\n{y_hat}\n')
+        #logging.info(f'Y_hat {y_hat.size()}\n{y_hat}\n')
         y_hat = torch.tensor(np.eye(self.num_labels, dtype=np.float32)[y_hat])
-        #print(f'One_hat {y_hat.size()}\n{y_hat}\n')
-        #print(f'LOGITS {logits.size()}\n{logits}\n')
+        #logging.info(f'One_hat {y_hat.size()}\n{y_hat}\n')
+        #logging.info(f'LOGITS {logits.size()}\n{logits}\n')
         return logits #, y_hat
 
 def ner_loss_func(out, *ys, cross_ent=False):
@@ -61,16 +65,19 @@ class OneHotCallBack(Callback):
 
     def on_batch_end(self, last_output, last_target, **kwargs):
         "Update metric computation with `last_output` and `last_target`."
-        print(f'last target {last_target.size()}')
-        print(f'last output {last_output.size()}')
         _, label_ids, label_mask = last_target
         out = last_output.argmax(-1)
+        logging.info(f'last target {label_ids[0][:20]}')
+        logging.info(f'last output {out[0][:20]}')
         out_masked = torch.masked_select(out, label_mask)
         last_output = torch.tensor(np.eye(10, dtype=np.float32)[out_masked])
         target_masked = torch.masked_select(label_ids, label_mask)
         one_hot_labels = torch.tensor(np.eye(10, dtype=np.float32)[target_masked])
-        print(f'last target {one_hot_labels.size()}')
-        print(f'last output {last_output.size()}')
+        logging.info(f'last target {one_hot_labels.size()}')
+        logging.info(f'last output {last_output.size()}')
+        logging.info(f'target {target_masked}')
+        logging.info(f'output {out_masked}')
+
 
         if not is_listy(one_hot_labels): one_hot_labels=[one_hot_labels]
         self.count += one_hot_labels[0].size(0)
@@ -84,3 +91,7 @@ class OneHotCallBack(Callback):
     def on_epoch_end(self, last_metrics, **kwargs):
         "Set the final result in `last_metrics`."
         return add_metrics(last_metrics, self.val/self.count)
+
+
+def conll_f1(oh_pred, oh_true):
+    pass

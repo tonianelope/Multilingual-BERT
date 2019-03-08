@@ -1,39 +1,75 @@
+import logging
 from functools import partial
 from pathlib import Path
 
 import fire
+import torch
+from fastai.basic_data import DataBunch
 from fastai.basic_train import Learner
 from fastai.metrics import fbeta
-from learner import BertForNER, ner_loss_func
-from ner_data import DEV, TEST, TRAIN, get_data_bunch
+from learner import BertForNER, OneHotCallBack, ner_loss_func
+from ner_data import NerDataset
 from optimizer import BertAdam
 from pytorch_pretrained_bert import BertModel
+from torch.utils.data import DataLoader
 
-ENG = {
-    TRAIN: 'train.txt',
-    DEV: 'dev.txt',
-    TEST: 'test.txt'
-}
 
-def run_ner():
-    DATA_BUNCH_PATH = Path('./data/conll-2003/data_bunch')
-    DATA_BUNCH_PATH.mkdir(parents=True, exist_ok=True)
+def conll_f1(oh_pred, oh_true):
+    # mask of all 0, 1 elements (e.g padding and 0 label)
+    mask = torch.ByteTensor([[1, 1]+[0]*(oh_pred.size(-1)-2)]*oh_pred.size(-2))
+    logging.info(f'mask: {mask.size()}')
+    oh_pred.masked_fill_(mask, 0)
+    oh_true.masked_fill_(mask, 0)
+    logging.info(f'oh pred: {oh_pred}')
+    logging.info(f'oh true: {oh_true}')
+    return fbeta(oh_pred, oh_true, beta=1, sigmoid=False)
 
-    data = get_data_bunch(DATA_BUNCH_PATH, ENG, batch_size=1)
+def run_ner(batch_size:int=1,
+            lr:float=0.0001,
+            epochs:int=1,
+            trainset:str='data/conll-2003/eng/train.txt',
+            devset:str='data/conll-2003/eng/dev.txt',
+            testset:str='data/conll-2003/eng/test.txt',
+            data_bunch_path:str='data/conll-2003/db'):
+
+    train_dl = DataLoader(
+        dataset=NerDataset(trainset),
+        batch_size=batch_size,
+        shuffle=True
+    )
+
+    dev_dl = DataLoader(
+        dataset=NerDataset(devset),
+        batch_size=batch_size,
+        shuffle=False
+    )
+
+    test_dl = DataLoader(
+        dataset=NerDataset(testset),
+        batch_size=batch_size,
+        shuffle=False
+    )
+
+    data = DataBunch(
+        train_dl= train_dl,
+        valid_dl= dev_dl,
+        test_dl = test_dl,
+        path = Path(data_bunch_path)
+    )
 
     model = BertForNER.from_pretrained('bert-base-uncased.tar.gz')
 
     f1 = partial(fbeta, beta=1, sigmoid=False)
 
-    learn = Learner(data, model, BertAdam, loss_func=ner_loss_func, metrics=[f1])
+    learn = Learner(data, model, BertAdam,
+                    loss_func=ner_loss_func,
+                    metrics=[OneHotCallBack(f1), OneHotCallBack(conll_f1)]
+    )
+
     # learn.lr_find()
     # learn.recorder.plot(skip_end=15)
 
-    learn.fit(1, 1e-05)
+    learn.fit(epochs, lr)
 
 if __name__ == '__main__':
     fire.Fire(run_ner)
-
-    # change logits to one_hots y
-    #   y_hat = y_pred.argmax(-1)
-    # y_pred = torch.tensor(np.eye(10, dtype=np.float32)[y_hat])

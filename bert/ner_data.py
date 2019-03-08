@@ -1,9 +1,10 @@
 import codecs
+import logging
 from pathlib import Path
 
 import numpy as np
 
-from conll_preprocessing import read_conll_data
+import torch
 from pytorch_pretrained_bert.tokenization import BertTokenizer
 from torch.utils.data import Dataset
 
@@ -19,12 +20,19 @@ TEST = 'test'
 TOKENIZER = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=True)
 
 class NerDataset(Dataset):
-    def __init__(self, filepath, tokenizer=TOKENIZER, max_seq_len=512):
+    """
+    creates a conll Dataset
+    filepath:     path to conll file
+    tokenizer:    default is BertTokenizer from pytorch pretrained bert
+    max_seq_len:  max length for examples, shorter ones are padded longer discarded
+    ds_size:      for debug peruses: truncates the dataset to ds_size examples
+    """
+    def __init__(self, filepath, tokenizer=TOKENIZER, max_seq_len=512, ds_size=None):
         data = read_conll_data(filepath)
+        if ds_size: data = data[:ds_size]
         self.labels, self.sents = zip(*data)
         self.tokenizer = tokenizer
-        print(self.labels[:2])
-        print(self.sents[:2])
+        self.max_seq_len = max_seq_len
 
     def __len__(self):
         return len(self.sents)
@@ -36,17 +44,18 @@ class NerDataset(Dataset):
         labels = bert_labels # TODO why uncommented????
         label_ids = [label2idx[l] for l in labels]
 
-        input_mask = [1] * len(input_ids) + [0] * (max_seq_len - len(input_ids))
-        label_mask =[0] + [1] * (len(label_ids)-2) + [0] * (max_seq_len - len(label_ids)+1)
-        segment_ids = [0] * max_seq_len # all sent A no sent B
-        label_ids += [label2idx[PAD]] * (max_seq_len - len(label_ids))
-        input_ids += [0] * (max_seq_len - len(input_ids))
+        input_mask = [1] * len(input_ids) + [0] * (self.max_seq_len - len(input_ids))
+        label_mask =[0] + [1] * (len(label_ids)-2) + [0] * (self.max_seq_len - len(label_ids)+1)
+        segment_ids = [0] * self.max_seq_len # all sent A no sent B
+        label_ids += [label2idx[PAD]] * (self.max_seq_len - len(label_ids))
+        input_ids += [0] * (self.max_seq_len - len(input_ids))
 
         one_hot_labels = np.eye(len(label2idx), dtype=np.float32)[label_ids]
 
-        assert max_seq_len == len(input_ids) == len(segment_ids) == len(one_hot_labels)
+        assert self.max_seq_len == len(input_ids) == len(segment_ids) == len(one_hot_labels)
 
-        return (input_ids, segment_ids, input_mask), (one_hot_labels, label_ids, label_mask)
+        return ( (torch.tensor(input_ids), torch.tensor(segment_ids), torch.tensor(input_mask)) ,
+                 (torch.tensor(one_hot_labels), torch.tensor(label_ids), torch.ByteTensor(label_mask)) )
 
     def get_bert_tl(self, index):
         "Convert a list of tokens and their corresponding labels"
@@ -67,7 +76,7 @@ class NerDataset(Dataset):
                 prefix[1] = 'I-'
             prev_label = label
             cur_tokens = self.tokenizer.tokenize(orig_token)
-            if not cur_tokens: print(orig_token)
+            if not cur_tokens: logging.info(orig_token)
             cur_labels = [f'{prefix[0]}{label}']+[f'{prefix[1]}{label}']*(len(cur_tokens)-1)
 
             # TODO log to long examples
@@ -122,7 +131,7 @@ def conll_to_csv(file):
 
         csv_path = csv_dir / (filepath.name + '.csv')
         df.to_csv(csv_path, index=False)
-        print(f'Wrote {csv_path}')
+        logging.info(f'Wrote {csv_path}')
         return csv_path
     else:
         raise ValueError(f'{file} does not exist, or is not a file')
