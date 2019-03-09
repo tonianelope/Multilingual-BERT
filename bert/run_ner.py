@@ -2,6 +2,8 @@ import logging
 from functools import partial
 from pathlib import Path
 
+import numpy as np
+
 import fire
 import torch
 from fastai.basic_data import DataBunch
@@ -24,15 +26,26 @@ def conll_f1(oh_pred, oh_true):
     logging.info(f'oh true: {oh_true}')
     return fbeta(oh_pred, oh_true, beta=1, sigmoid=False)
 
-def run_ner(batch_size:int=1,
+def run_ner(bert_model:str='bert-base-uncased',
+            output_dir:str,
+            batch_size:int=1,
             lr:float=0.0001,
             epochs:int=1,
             trainset:str='data/conll-2003/eng/train.txt',
             devset:str='data/conll-2003/eng/dev.txt',
             testset:str='data/conll-2003/eng/test.txt',
-            bert_model:str='bert-base-uncased',
+            max_seq_length:int=512,
+            warmup_proportion:float=0.1,
+            gradient_accumulation_steps:int=1,
+            rand_seed:int=42,
+            fp16:bool=False,
+            loss_scale:int=0,
             ds_size:int=None,
             data_bunch_path:str='data/conll-2003/db'):
+
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
 
     train_dl = DataLoader(
         dataset=NerDataset(trainset, ds_size=ds_size),
