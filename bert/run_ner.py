@@ -88,8 +88,17 @@ def run_ner(bert_model:str='bert-base-uncased',
     f1 = partial(fbeta, beta=1, sigmoid=False)
 
     if fp16:
-        dynamic=True if not loss_scale else False
-        learn = Learner(data, model, opt??,
+        try:
+            from apex.optimizers import FP16_Optimizer
+            from apex.optimizers import FusedAdam
+        except ImportError:
+            raise ImportError("Please install apex from https://www.github.com/nvidia/apex"
+                              "to use distributed and fp16 training.")
+
+        optim, dynamic=(FuseAdam, True) if not loss_scale else (FP16_Optimizer,False)
+        # TODO call optim backwards(loss) and add special bert warm up on loss calc
+
+        learn = Learner(data, model, optim,
                         loss_func=ner_loss_func,
                         metrics=[OneHotCallBack(f1), OneHotCallBack(conll_f1)]
         ).to_fp16(loss_scale=loss_scale, dynamic=dynamic)
