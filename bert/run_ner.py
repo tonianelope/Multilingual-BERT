@@ -30,22 +30,24 @@ def run_ner(batch_size:int=1,
             trainset:str='data/conll-2003/eng/train.txt',
             devset:str='data/conll-2003/eng/dev.txt',
             testset:str='data/conll-2003/eng/test.txt',
+            bert_model:str='bert-base-uncased',
+            ds_size:int=None,
             data_bunch_path:str='data/conll-2003/db'):
 
     train_dl = DataLoader(
-        dataset=NerDataset(trainset),
+        dataset=NerDataset(trainset, ds_size=ds_size),
         batch_size=batch_size,
         shuffle=True
     )
 
     dev_dl = DataLoader(
-        dataset=NerDataset(devset),
+        dataset=NerDataset(devset, ds_size=ds_size),
         batch_size=batch_size,
         shuffle=False
     )
 
     test_dl = DataLoader(
-        dataset=NerDataset(testset),
+        dataset=NerDataset(testset, ds_size=ds_size),
         batch_size=batch_size,
         shuffle=False
     )
@@ -57,7 +59,7 @@ def run_ner(batch_size:int=1,
         path = Path(data_bunch_path)
     )
 
-    model = BertForNER.from_pretrained('bert-base-uncased.tar.gz')
+    model = BertForNER.from_pretrained(bert_model)
 
     f1 = partial(fbeta, beta=1, sigmoid=False)
 
