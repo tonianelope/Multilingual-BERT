@@ -56,6 +56,7 @@ def run_ner(bert_model:str='bert-base-uncased',
                          {gradient_accumulation_steps}, should be >= 1""")
 
     tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=do_lower_case)
+    batch_size //= gradient_accumulation_steps
 
     train_dl = DataLoader(
         dataset=NerDataset(trainset, tokenizer=tokenizer, ds_size=ds_size),
