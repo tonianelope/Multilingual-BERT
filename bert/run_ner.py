@@ -40,7 +40,7 @@ def run_ner(bert_model:str='bert-base-uncased',
             gradient_accumulation_steps:int=1,
             rand_seed:int=42,
             fp16:bool=False,
-            loss_scale:int=0,
+            loss_scale:float=None,
             ds_size:int=None,
             data_bunch_path:str='data/conll-2003/db'):
 
@@ -86,10 +86,17 @@ def run_ner(bert_model:str='bert-base-uncased',
 
     f1 = partial(fbeta, beta=1, sigmoid=False)
 
-    learn = Learner(data, model, BertAdam,
-                    loss_func=ner_loss_func,
-                    metrics=[OneHotCallBack(f1), OneHotCallBack(conll_f1)]
-    )
+    if fp16:
+        dynamic=True if not loss_scale else False
+        learn = Learner(data, model, opt??,
+                        loss_func=ner_loss_func,
+                        metrics=[OneHotCallBack(f1), OneHotCallBack(conll_f1)]
+        ).to_fp16(loss_scale=loss_scale, dynamic=dynamic)
+    else:
+        learn = Learner(data, model, BertAdam,
+                        loss_func=ner_loss_func,
+                        metrics=[OneHotCallBack(f1), OneHotCallBack(conll_f1)]
+        )
 
     # learn.lr_find()
     # learn.recorder.plot(skip_end=15)
