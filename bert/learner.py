@@ -3,7 +3,7 @@ import logging
 import numpy as np
 
 import torch
-from fastai.callback import Callback
+from fastai.callback import Callback, LearnerCallback
 from fastai.core import is_listy
 from fastai.torch_core import add_metrics, num_distrib
 from ner_data import VOCAB
@@ -95,3 +95,20 @@ class OneHotCallBack(Callback):
 
 def conll_f1(oh_pred, oh_true):
     pass
+
+@dataclass
+class FP16Callback(LearnerCallback):
+
+    def __init__(self, learn, gradient_accumulation_steps, fp16):
+
+    def on_backward_begin(self, loss, **kwargs):
+        if self.gradient_accumulation_steps > 1:
+            loss /= gradient_accumulation_steps
+        if self.fp16:
+            learn.opt.backwards(loss)
+
+            # TODO translate properly
+            lr_this_step = args.learning_rate * warmup_linear(global_step/num_train_optimization_steps, args.warmup_proportion)
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = lr_this_step
+        return loss, self.fp16

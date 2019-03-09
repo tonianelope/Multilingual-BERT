@@ -96,7 +96,7 @@ def run_ner(bert_model:str='bert-base-uncased',
                               "to use distributed and fp16 training.")
 
         optim, dynamic=(FuseAdam, True) if not loss_scale else (FP16_Optimizer,False)
-        # TODO call optim backwards(loss) and add special bert warm up on loss 
+        # TODO call optim backwards(loss) and add special bert warm up on loss calc
 
         learn = Learner(data, model, optim,
                         loss_func=ner_loss_func,
