@@ -1,4 +1,3 @@
-import logging
 from functools import partial
 from pathlib import Path
 
@@ -13,6 +12,7 @@ from learner import BertForNER, OneHotCallBack, ner_loss_func
 from ner_data import NerDataset
 from optimizer import BertAdam
 from pytorch_pretrained_bert import BertModel
+from pytorch_pretrained_bert.tokenization import BertTokenizerimport, logging
 from torch.utils.data import DataLoader
 
 
@@ -35,6 +35,7 @@ def run_ner(bert_model:str='bert-base-uncased',
             devset:str='data/conll-2003/eng/dev.txt',
             testset:str='data/conll-2003/eng/test.txt',
             max_seq_length:int=512,
+            do_lower_case:bool=False,
             warmup_proportion:float=0.1,
             gradient_accumulation_steps:int=1,
             rand_seed:int=42,
@@ -47,20 +48,29 @@ def run_ner(bert_model:str='bert-base-uncased',
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
 
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True) # exist_ok=True 
+
+    if gradient_accumulation_steps < 1:
+        raise ValueError(f"""Invalid gradient_accumulation_steps parameter:
+                         {gradient_accumulation_steps}, should be >= 1""")
+
+    tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=do_lower_case)
+
     train_dl = DataLoader(
-        dataset=NerDataset(trainset, ds_size=ds_size),
+        dataset=NerDataset(trainset, tokenizer=tokenizer, ds_size=ds_size),
         batch_size=batch_size,
         shuffle=True
     )
 
     dev_dl = DataLoader(
-        dataset=NerDataset(devset, ds_size=ds_size),
+        dataset=NerDataset(devset, tokenizer=tokenizer, ds_size=ds_size),
         batch_size=batch_size,
         shuffle=False
     )
 
     test_dl = DataLoader(
-        dataset=NerDataset(testset, ds_size=ds_size),
+        dataset=NerDataset(testset, tokenizer=tokenizer, ds_size=ds_size),
         batch_size=batch_size,
         shuffle=False
     )
