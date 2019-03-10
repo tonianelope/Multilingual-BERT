@@ -49,13 +49,14 @@ def run_ner(bert_model:str='bert-base-uncased',
     torch.manual_seed(args.seed)
 
     output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True) # exist_ok=True 
+    output_dir.mkdir(parents=True) # exist_ok=True
 
     if gradient_accumulation_steps < 1:
         raise ValueError(f"""Invalid gradient_accumulation_steps parameter:
                          {gradient_accumulation_steps}, should be >= 1""")
 
     tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=do_lower_case)
+    # TODO proper training with grad accum step??
     batch_size //= gradient_accumulation_steps
 
     train_dl = DataLoader(
