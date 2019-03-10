@@ -1,14 +1,16 @@
 import logging
+from dataclasses import dataclass
 
 import numpy as np
 
 import torch
-from fastai.callback import Callback, LearnerCallback
+from fastai.basic_train import Learner, LearnerCallback
+from fastai.callback import Callback
 from fastai.core import is_listy
 from fastai.torch_core import add_metrics, num_distrib
 from ner_data import VOCAB
-from pytorch_pretrained_bert import warmup_linear
 from pytorch_pretrained_bert.modeling import BertModel, BertPreTrainedModel
+from pytorch_pretrained_bert.optimization import warmup_linear
 
 
 class BertForNER(BertPreTrainedModel):
@@ -97,13 +99,15 @@ class OneHotCallBack(Callback):
 def conll_f1(oh_pred, oh_true):
     pass
 
+def create_fp16_cb(learn, **kwargs):
+    return FP16_Callback(learn, **kwargs)
+
 @dataclass
-class FP16Callback(LearnerCallback):
-    learn: Learner
-    fp16: bool
-    gradient_accumulation_steps: int
+class FP16_Callback(LearnerCallback):
     train_opt_steps: int
-    warmup_proportion: float
+    gradient_accumulation_steps: int = 1
+    warmup_proportion: float = 0.1
+    fp16: bool = True
     global_step: int = 0
 
     def on_backward_begin(self, loss, **kwargs):
