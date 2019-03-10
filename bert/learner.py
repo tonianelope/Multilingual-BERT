@@ -3,11 +3,13 @@ import logging
 import numpy as np
 
 import torch
+from fastai.basic_train import Learner, LearnerCallback
 from fastai.callback import Callback
 from fastai.core import is_listy
 from fastai.torch_core import add_metrics, num_distrib
 from ner_data import VOCAB
 from pytorch_pretrained_bert.modeling import BertModel, BertPreTrainedModel
+from pytorch_pretrained_bert.optimization import warmup_linear
 
 
 class BertForNER(BertPreTrainedModel):
@@ -95,3 +97,40 @@ class OneHotCallBack(Callback):
 
 def conll_f1(oh_pred, oh_true):
     pass
+
+def create_fp16_cb(learn, **kwargs):
+    return FP16_Callback(learn, **kwargs)
+
+class FP16_Callback(LearnerCallback):
+
+    def __init__(self,
+                 learn: Learner,
+                 train_opt_steps: int,
+                 gradient_accumulation_steps: int = 1,
+                 warmup_proportion: float = 0.1,
+                 fp16: bool = True,
+                 global_step: int = 0):
+        super().__init__(learn)
+        self.train_opt_steps = train_opt_steps
+        self.gradient_accumulation_steps = gradient_accumulation_steps
+        self.warmup_proportion = warmup_proportion
+        self.fp16 = fp16
+        self.global_step = global_step
+
+    def on_backward_begin(self, loss, **kwargs):
+        '''
+        returns loss, skip_backward
+        '''
+        if self.gradient_accumulation_steps > 1:
+            loss /= gradient_accumulation_steps
+
+        if self.fp16:
+            learn.opt.backwards(loss)
+            # modify learning rate with special BERT warm up
+
+            lr_this_step = learn.opt.get_lr() * warmup_linear(
+               self.global_step/self.train_opt_steps, warmup_proportion)
+            for param_group in learn.opt.param_groups:
+                param_group['lr'] = lr_this_step
+            global_step += 1
+        return loss, self.fp16
