@@ -99,8 +99,12 @@ def conll_f1(oh_pred, oh_true):
 
 @dataclass
 class FP16Callback(LearnerCallback):
-
-    def __init__(self, learn, fp16, gradient_accumulation_steps, train_opt_steps, warmup_proportion, global_step=0):
+    learn: Learner
+    fp16: bool
+    gradient_accumulation_steps: int
+    train_opt_steps: int
+    warmup_proportion: float
+    global_step: int = 0
 
     def on_backward_begin(self, loss, **kwargs):
         '''
