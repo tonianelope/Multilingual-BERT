@@ -102,10 +102,10 @@ class FP16Callback(LearnerCallback):
 
     def __init__(self, learn, fp16, gradient_accumulation_steps, train_opt_steps, warmup_proportion, global_step=0):
 
-    '''
-    returns loss, skip_backward
-    '''
     def on_backward_begin(self, loss, **kwargs):
+        '''
+        returns loss, skip_backward
+        '''
         if self.gradient_accumulation_steps > 1:
             loss /= gradient_accumulation_steps
 
