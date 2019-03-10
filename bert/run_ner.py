@@ -27,7 +27,6 @@ def conll_f1(oh_pred, oh_true):
     return fbeta(oh_pred, oh_true, beta=1, sigmoid=False)
 
 def run_ner(bert_model:str='bert-base-uncased',
-            output_dir:str,
             batch_size:int=1,
             lr:float=0.0001,
             epochs:int=1,
