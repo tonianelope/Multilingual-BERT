@@ -100,14 +100,14 @@ def run_ner(bert_model:str='bert-base-uncased',
         except ImportError:
             raise ImportError("Please install apex from https://www.github.com/nvidia/apex"
                               "to use distributed and fp16 training.")
-        optim, dynamic=(FuseAdam, True) if not loss_scale else (FP16_Optimizer,False)
+        optim, dynamic=(FusedAdam, True) if not loss_scale else (FP16_Optimizer,False)
 
     learn = Learner(data, model, optim,
                     loss_func=ner_loss_func,
                     metrics=[OneHotCallBack(f1), OneHotCallBack(conll_f1)],
                     callback_fns=fp16_cb_fns)
 
-    if fp16: learn.to_fp16(loss_scale=loss_scale, dynamic=dynamic)
+    if fp16: learn = Learner.to_fp16(learn, loss_scale=loss_scale, dynamic=dynamic)
 
     # learn.lr_find()
     # learn.recorder.plot(skip_end=15)
