@@ -10,6 +10,7 @@ import torch
 from fastai.basic_data import DataBunch
 from fastai.basic_train import Learner
 from fastai.metrics import fbeta
+from fastai.train import to_fp16
 from learner import BertForNER, OneHotCallBack, create_fp16_cb, ner_loss_func
 from ner_data import NerDataset
 from optimizer import BertAdam
@@ -107,7 +108,7 @@ def run_ner(bert_model:str='bert-base-uncased',
                     metrics=[OneHotCallBack(f1), OneHotCallBack(conll_f1)],
                     callback_fns=fp16_cb_fns)
 
-    if fp16: learn = Learner.to_fp16(learn, loss_scale=loss_scale, dynamic=dynamic)
+    if fp16: learn.to_fp16(loss_scale=loss_scale, dynamic=dynamic)
 
     # learn.lr_find()
     # learn.recorder.plot(skip_end=15)

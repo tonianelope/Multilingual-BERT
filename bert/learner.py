@@ -1,5 +1,4 @@
 import logging
-from dataclasses import dataclass
 
 import numpy as np
 
@@ -102,13 +101,21 @@ def conll_f1(oh_pred, oh_true):
 def create_fp16_cb(learn, **kwargs):
     return FP16_Callback(learn, **kwargs)
 
-@dataclass
 class FP16_Callback(LearnerCallback):
-    train_opt_steps: int
-    gradient_accumulation_steps: int = 1
-    warmup_proportion: float = 0.1
-    fp16: bool = True
-    global_step: int = 0
+
+    def __init__(self,
+                 learn: Learner,
+                 train_opt_steps: int,
+                 gradient_accumulation_steps: int = 1,
+                 warmup_proportion: float = 0.1,
+                 fp16: bool = True,
+                 global_step: int = 0):
+        super().__init__(learn)
+        self.train_opt_steps = train_opt_steps
+        self.gradient_accumulation_steps = gradient_accumulation_steps
+        self.warmup_proportion = warmup_proportion
+        self.fp16 = fp16
+        self.global_step = global_step
 
     def on_backward_begin(self, loss, **kwargs):
         '''
