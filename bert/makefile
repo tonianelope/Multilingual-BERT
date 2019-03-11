@@ -23,3 +23,6 @@ dataset-eng:
 dataset-deu:
 	mkdir -p data/conll-2003/deu
 	svn co 'https://github.com/Nidhi-K/Natural-Language-Processing-Projects/trunk/Sequential CRF for NER/data/' data/conll-2003/deu
+
+model:
+	wget https://s3.amazonaws.com/models.huggingface.co/bert/$(BERT).tar.gz
