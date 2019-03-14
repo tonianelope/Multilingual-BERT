@@ -1,16 +1,16 @@
 EXEC=python run_ner.py
 
 test:
-	$(EXEC) --ds-size=1
+	$(EXEC) --ds-size=1 $(W)
 
 apex-test:
-	$(EXEC) --ds-size=1 --fp16
+	$(EXEC) --ds-size=1 --fp16 $(W)
 
 run:
-	$(EXEC) --batch_size=16 --epochs=7
+	$(EXEC) --batch_size=16 --epochs=7 $(W)
 
 apex-run:
-	$(EXEC) --batch_size=16 --epochs=7 --fp16
+	$(EXEC) --batch_size=16 --epochs=7 --fp16 $(W)
 
 datasets:
 	make dataset-eng
