@@ -69,34 +69,37 @@ class OneHotCallBack(Callback):
         "Update metric computation with `last_output` and `last_target`."
         _, label_ids, label_mask = last_target
         out = last_output.argmax(-1)
-        logging.info(f'last target {label_ids[0][:20]}')
-        logging.info(f'last output {out[0][:20]}')
+        logging.info(f'last target: {label_ids[0][:100]}')
+        logging.info(f'last output: {out[0][:100]}')
         out_masked = torch.masked_select(out, label_mask)
-        last_output = torch.tensor(np.eye(10, dtype=np.float32)[out_masked])
         target_masked = torch.masked_select(label_ids, label_mask)
-        one_hot_labels = torch.tensor(np.eye(10, dtype=np.float32)[target_masked])
-        logging.info(f'last target {one_hot_labels.size()}')
-        logging.info(f'last output {last_output.size()}')
-        logging.info(f'target {target_masked}')
-        logging.info(f'output {out_masked}')
+        logging.info(f'masked target: {target_masked}')
+        logging.info(f'masked output: {out_masked}')
 
-
-        if not is_listy(one_hot_labels): one_hot_labels=[one_hot_labels]
-        self.count += one_hot_labels[0].size(0)
-        val = self.func(last_output, *one_hot_labels)
+        if not is_listy(target_masked): target_masked=[target_masked]
+        self.count += target_masked[0].size(0)
+        val = self.func(out_masked, *target_masked)
         if self.world:
             val = val.clone()
             dist.all_reduce(val, op=dist.ReduceOp.SUM)
             val /= self.world
-        self.val += one_hot_labels[0].size(0) * val.detach().cpu()
+        self.val += target_masked[0].size(0) * val.detach().cpu()
 
     def on_epoch_end(self, last_metrics, **kwargs):
         "Set the final result in `last_metrics`."
         return add_metrics(last_metrics, self.val/self.count)
 
+def conll_f1(y_pred, y_true, eps:float=1e-9):
 
-def conll_f1(oh_pred, oh_true):
-    pass
+    all_pos = len(y_pred[y_pred>1])
+    actual_pos = len(y_true[y_true>1])
+    correct_pos =(np.logical_and(y_true==y_pred, y_true>1)).sum().item()
+    logging.info(f'{all_pos} - {actual_pos} -> {correct_pos}')
+    prec = correct_pos / (all_pos + eps)
+    rec = correct_pos / (actual_pos + eps)
+    f1 = (prec*rec)/(prec+rec+eps)
+    logging.info(f'f1: {f1}')
+    return torch.Tensor([f1])
 
 def create_fp16_cb(learn, **kwargs):
     return FP16_Callback(learn, **kwargs)
@@ -117,10 +120,11 @@ class FP16_Callback(LearnerCallback):
         self.fp16 = fp16
         self.global_step = global_step
 
-    def on_backward_begin(self, loss, **kwargs):
+    def on_backward_begin(self, last_loss, **kwargs):
         '''
         returns loss, skip_backward
         '''
+        loss = last_loss
         if self.gradient_accumulation_steps > 1:
             loss /= gradient_accumulation_steps
 
@@ -133,4 +137,4 @@ class FP16_Callback(LearnerCallback):
             for param_group in learn.opt.param_groups:
                 param_group['lr'] = lr_this_step
             global_step += 1
-        return loss, self.fp16
+        return {'last_loss': loss, 'skip_bwd': self.fp16}

@@ -1,5 +1,8 @@
 EXEC=python run_ner.py
 
+help:
+	$(EXEC) --help
+
 test:
 	$(EXEC) --ds-size=1 $(W)
 
@@ -7,10 +10,10 @@ apex-test:
 	$(EXEC) --ds-size=1 --fp16 $(W)
 
 run:
-	$(EXEC) --batch_size=16 --epochs=7 $(W)
+	$(EXEC) --batch_size=16 --epochs=1 $(W)
 
 apex-run:
-	$(EXEC) --batch_size=16 --epochs=7 --fp16 $(W)
+	$(EXEC) --batch_size=16 --epochs=1 --fp16 $(W)
 
 datasets:
 	make dataset-eng
@@ -26,3 +29,12 @@ dataset-deu:
 
 model:
 	wget https://s3.amazonaws.com/models.huggingface.co/bert/$(BERT).tar.gz
+
+clean-logs:
+	rm *.log
+
+clean-models:
+	rm *.tar.gz
+
+rm-dataset:
+	rm -rf data
