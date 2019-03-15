@@ -42,8 +42,10 @@ def ner_loss_func(out, *ys, cross_ent=False):
     one_hot_labels, label_ids, label_mask = ys
 
     if cross_ent: # use torch cross entropy loss
-        logits.view(-1, logits.shape[-1])
-        y = ys[0].view(-1)
+        logits = logits.view(-1, logits.shape[-1])
+        y = label_ids.view(-1)
+        print(logits)
+        print(y)
         fc =  torch.nn.CrossEntropyLoss(ignore_index=0)
         # need mask???
         return fc(logits, y)
@@ -70,8 +72,8 @@ class OneHotCallBack(Callback):
         "Update metric computation with `last_output` and `last_target`."
         _, label_ids, label_mask = last_target
         out = last_output.argmax(-1)
-        logging.info(f'last target: {label_ids[0][:100]}')
-        logging.info(f'last output: {out[0][:100]}')
+        # logging.info(f'last target: {label_ids[0][:100]}')
+        # logging.info(f'last output: {out[0][:100]}')
         out_masked = torch.masked_select(out, label_mask)
         target_masked = torch.masked_select(label_ids, label_mask)
         logging.info(f'masked target: {target_masked}')
