@@ -38,3 +38,6 @@ clean-models:
 
 rm-dataset:
 	rm -rf data
+
+fastai:
+	pip install git+https://github.com/fastai/fastai.git

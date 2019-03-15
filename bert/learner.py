@@ -6,11 +6,18 @@ import torch
 from fastai.basic_train import Learner, LearnerCallback
 from fastai.callback import Callback
 from fastai.core import is_listy
+from fastai.metrics import fbeta
 from fastai.torch_core import add_metrics, num_distrib
 from ner_data import VOCAB
 from pytorch_pretrained_bert.modeling import BertModel, BertPreTrainedModel
 from pytorch_pretrained_bert.optimization import warmup_linear
 
+logging.basicConfig(filename='learner.log',
+                    filemode='a',
+                    format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                    datefmt='%H:%M%S',
+                    level=logging.INFO
+)
 
 class BertForNER(BertPreTrainedModel):
 

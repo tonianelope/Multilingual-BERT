@@ -11,23 +11,20 @@ from fastai.basic_data import DataBunch
 from fastai.basic_train import Learner
 from fastai.metrics import fbeta
 from fastai.train import to_fp16
-from learner import BertForNER, OneHotCallBack, create_fp16_cb, ner_loss_func
+from learner import (BertForNER, OneHotCallBack, conll_f1, create_fp16_cb,
+                     ner_loss_func)
 from ner_data import NerDataset
 from optimizer import BertAdam
 from pytorch_pretrained_bert import BertModel
 from pytorch_pretrained_bert.tokenization import BertTokenizer
 from torch.utils.data import DataLoader
 
-
-def conll_f1(oh_pred, oh_true):
-    # mask of all 0, 1 elements (e.g padding and 0 label)
-    mask = torch.ByteTensor([[1, 1]+[0]*(oh_pred.size(-1)-2)]*oh_pred.size(-2))
-    logging.info(f'mask: {mask.size()}')
-    oh_pred.masked_fill_(mask, 0)
-    oh_true.masked_fill_(mask, 0)
-    logging.info(f'oh pred: {oh_pred}')
-    logging.info(f'oh true: {oh_true}')
-    return fbeta(oh_pred, oh_true, beta=1, sigmoid=False)
+logging.basicConfig(filename='run_ner.log',
+                    filemode='a',
+                    format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                    datefmt='%H:%M%S',
+                    level=logging.INFO
+)
 
 def run_ner(bert_model:str='bert-base-uncased',
             batch_size:int=1,
@@ -105,7 +102,7 @@ def run_ner(bert_model:str='bert-base-uncased',
 
     learn = Learner(data, model, optim,
                     loss_func=ner_loss_func,
-                    metrics=[OneHotCallBack(f1), OneHotCallBack(conll_f1)],
+                    metrics=[OneHotCallBack(conll_f1)],
                     callback_fns=fp16_cb_fns)
 
     if fp16: learn.to_fp16(loss_scale=loss_scale, dynamic=dynamic)
