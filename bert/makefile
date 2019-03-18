@@ -32,6 +32,7 @@ model:
 
 clean-logs:
 	rm *.log
+	rm out.txt
 
 clean-models:
 	rm *.tar.gz

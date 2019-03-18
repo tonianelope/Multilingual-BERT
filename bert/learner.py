@@ -13,6 +13,11 @@ from pytorch_pretrained_bert.modeling import BertModel, BertPreTrainedModel
 from pytorch_pretrained_bert.optimization import warmup_linear
 
 
+def write_log(msg):
+    with open('out.txt', 'a') as f:
+        f.write(msg+'\n')
+
+
 class BertForNER(BertPreTrainedModel):
 
     def __init__(self, config):
@@ -37,6 +42,9 @@ class BertForNER(BertPreTrainedModel):
         return logits #, y_hat
 
 def ner_loss_func(out, *ys, cross_ent=False):
+    write_log("===========\n\tLOSS")
+    write_log(f"O: {out}")
+    _ = ner_ys_masked(out, ys)
 
     logits = out
     one_hot_labels, label_ids, label_mask = ys
@@ -55,6 +63,22 @@ def ner_loss_func(out, *ys, cross_ent=False):
         losses = torch.masked_select(losses, label_mask) # TODO compare with predict mask
         return torch.sum(losses)
 
+def ner_ys_masked(output, target):
+
+    _, label_ids, label_mask = target
+
+    out = output.argmax(-1)
+    write_log(f'A: {out}')
+    out_masked, target_masked = [], []
+    for i in range(len(out)):
+        o = torch.masked_select(out[i], label_mask[i])
+        t = torch.masked_select(label_ids[i], label_mask[i])
+        write_log(f'T: {t}')
+        write_log(f'P: {o}')
+        out_masked.append(o)
+        target_masked.append(t)
+    return out_masked, target_masked
+
 class OneHotCallBack(Callback):
 
     def __init__(self, func):
@@ -65,16 +89,14 @@ class OneHotCallBack(Callback):
 
     def on_epoch_begin(self, **kwargs):
         "Set the inner value to 0."
+        write_log(f"""====================\n\t E {kwargs['epoch']}\n====================""")
         self.val, self.count = 0.,0
 
     def on_batch_end(self, last_output, last_target, **kwargs):
         "Update metric computation with `last_output` and `last_target`."
-        _, label_ids, label_mask = last_target
-        out = last_output.argmax(-1)
-        # logging.info(f'last target: {label_ids[0][:100]}')
-        # logging.info(f'last output: {out[0][:100]}')
-        out_masked = torch.masked_select(out, label_mask)
-        target_masked = torch.masked_select(label_ids, label_mask)
+        write_log("===========\n\tEVAL")
+        out_masked, target_masked = ner_ys_masked(last_output, last_target)
+
         logging.info(f'masked target: {target_masked}')
         logging.info(f'masked output: {out_masked}')
 
@@ -91,17 +113,22 @@ class OneHotCallBack(Callback):
         "Set the final result in `last_metrics`."
         return add_metrics(last_metrics, self.val/self.count)
 
-def conll_f1(y_pred, y_true, eps:float=1e-9):
-
-    all_pos = len(y_pred[y_pred>1])
-    actual_pos = len(y_true[y_true>1])
-    correct_pos =(np.logical_and(y_true==y_pred, y_true>1)).sum().item()
-    logging.info(f'{all_pos} - {actual_pos} -> {correct_pos}')
-    prec = correct_pos / (all_pos + eps)
-    rec = correct_pos / (actual_pos + eps)
-    f1 = (prec*rec)/(prec+rec+eps)
-    logging.info(f'f1: {f1}')
-    return torch.Tensor([f1])
+def conll_f1(pred, *true, eps:float = 1e-9):
+    scores = np.empty(len(pred))
+    for i in range(len(pred)):
+        y_pred, y_true = pred[i], true[i]
+        all_pos = len(y_pred[y_pred>1])
+        actual_pos = len(y_true[y_true>1])
+        correct_pos =(np.logical_and(y_true==y_pred, y_true>1)).sum().item()
+        logging.info(f'{all_pos} - {actual_pos} -> {correct_pos}')
+        prec = correct_pos / (all_pos + eps)
+        rec = correct_pos / (actual_pos + eps)
+        f1 = (prec*rec)/(prec+rec+eps)
+        logging.info(f'f1: {f1}')
+        scores[i]= f1
+    write_log(f'scores: {scores}')
+    write_log(f'Mean: {scores.mean()}')
+    return torch.Tensor([scores.mean()])
 
 def create_fp16_cb(learn, **kwargs):
     return FP16_Callback(learn, **kwargs)
