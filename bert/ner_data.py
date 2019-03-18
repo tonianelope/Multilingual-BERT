@@ -106,7 +106,7 @@ def pad(batch, bertmax=512):
         label_id = pad_fun(y[1])
         label_ids.append(label_id)
         label_mask.append( pad_fun(y[2]))
-        one_hot_labels.append(np.eye(len(label2idx), dtype=np.float32)[label_id]
+        one_hot_labels.append(np.eye(len(label2idx), dtype=np.float32)[label_id])
 
     return ( ( t(input_ids), t(segment_ids), t(input_mask) )  ,
              ( t(one_hot_labels), t(label_ids), t(label_mask).byte() ) )
