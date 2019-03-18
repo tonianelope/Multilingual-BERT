@@ -43,7 +43,6 @@ class BertForNER(BertPreTrainedModel):
 
 def ner_loss_func(out, *ys, cross_ent=False):
     write_log("===========\n\tLOSS")
-    write_log(f"O: {out}")
     _ = ner_ys_masked(out, ys)
 
     logits = out
@@ -63,18 +62,18 @@ def ner_loss_func(out, *ys, cross_ent=False):
         losses = torch.masked_select(losses, label_mask) # TODO compare with predict mask
         return torch.sum(losses)
 
-def ner_ys_masked(output, target):
+def ner_ys_masked(output, target, log=False):
 
     _, label_ids, label_mask = target
 
     out = output.argmax(-1)
-    write_log(f'A: {out}')
     out_masked, target_masked = [], []
     for i in range(len(out)):
         o = torch.masked_select(out[i], label_mask[i])
         t = torch.masked_select(label_ids[i], label_mask[i])
-        write_log(f'T: {t}')
-        write_log(f'P: {o}')
+        if log:
+          write_log(f'T: {t}')
+          write_log(f'P: {o}')
         out_masked.append(o)
         target_masked.append(t)
     return out_masked, target_masked
@@ -94,7 +93,6 @@ class OneHotCallBack(Callback):
 
     def on_batch_end(self, last_output, last_target, **kwargs):
         "Update metric computation with `last_output` and `last_target`."
-        write_log("===========\n\tEVAL")
         out_masked, target_masked = ner_ys_masked(last_output, last_target)
 
         logging.info(f'masked target: {target_masked}')
@@ -126,7 +124,7 @@ def conll_f1(pred, *true, eps:float = 1e-9):
         f1 = (prec*rec)/(prec+rec+eps)
         logging.info(f'f1: {f1}')
         scores[i]= f1
-    write_log(f'scores: {scores}')
+    write_log(f'===============\nscores: {scores}')
     write_log(f'Mean: {scores.mean()}')
     return torch.Tensor([scores.mean()])
 
