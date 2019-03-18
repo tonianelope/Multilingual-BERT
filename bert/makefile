@@ -10,7 +10,13 @@ apex-test:
 	$(EXEC) --ds-size=1 --fp16 $(W)
 
 run:
-	$(EXEC) --batch_size=16 --epochs=1 $(W)
+	$(EXEC) --batch-size=16 --epochs=1 $(W)
+
+run-c:
+	$(EXEC) --batch-size=32 --epochs=3 --lr=5e-5 --cross-ent=True $(W)
+
+run-nc:
+	$(EXEC) --batch-size=32 --epochs=3 --lr=5e-5 --cross-ent=False $(W)
 
 apex-run:
 	$(EXEC) --batch_size=16 --epochs=1 --fp16 $(W)
