@@ -40,6 +40,7 @@ def run_ner(bert_model:str='bert-base-uncased',
             rand_seed:int=42,
             fp16:bool=False,
             loss_scale:float=None,
+            cross_ent:bool=False,
             ds_size:int=None,
             data_bunch_path:str='data/conll-2003/db'):
 
@@ -89,6 +90,7 @@ def run_ner(bert_model:str='bert-base-uncased',
 
     train_opt_steps = int(len(train_dl.dataset) / batch_size / grad_acc_steps) * epochs
     f1 = partial(fbeta, beta=1, sigmoid=False)
+    loss_fun = partial(ner_loss_func, cross_ent=cross_ent)
     fp16_cb_fns = partial(create_fp16_cb,
                           train_opt_steps = train_opt_steps,
                           gradient_accumulation_steps = grad_acc_steps,
@@ -105,7 +107,7 @@ def run_ner(bert_model:str='bert-base-uncased',
         optim, dynamic=(FusedAdam, True) if not loss_scale else (FP16_Optimizer,False)
 
     learn = Learner(data, model, optim,
-                    loss_func=ner_loss_func,
+                    loss_func=loss_fun,
                     metrics=[OneHotCallBack(conll_f1)],
                     callback_fns=fp16_cb_fns)
 
