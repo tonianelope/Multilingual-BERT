@@ -44,18 +44,16 @@ class NerDataset(Dataset):
         labels = bert_labels # TODO why uncommented????
         label_ids = [label2idx[l] for l in labels]
 
-        input_mask = [1] * len(input_ids) + [0] * (self.max_seq_len - len(input_ids))
-        label_mask =[0] + [1] * (len(label_ids)-2) + [0] * (self.max_seq_len - len(label_ids)+1)
-        segment_ids = [0] * self.max_seq_len # all sent A no sent B
-        label_ids += [label2idx[PAD]] * (self.max_seq_len - len(label_ids))
-        input_ids += [0] * (self.max_seq_len - len(input_ids))
-
         one_hot_labels = np.eye(len(label2idx), dtype=np.float32)[label_ids]
 
-        assert self.max_seq_len == len(input_ids) == len(segment_ids) == len(one_hot_labels)
+        seqlen = len(label_ids)
+        segment_ids = [0] * seqlen
+        input_mask = [1] * seqlen
+        label_mask = [0] + [1] * (seqlen-2) + [0]
+        # assert self.max_seq_len == len(input_ids) == len(segment_ids) == len(one_hot_labels)
 
-        return ( (torch.tensor(input_ids), torch.tensor(segment_ids), torch.tensor(input_mask)) ,
-                 (torch.tensor(one_hot_labels), torch.tensor(label_ids), torch.ByteTensor(label_mask)) )
+        return ( (input_ids, segment_ids, input_mask, seqlen)  ,
+                 (one_hot_labels, label_ids, label_mask) )
 
     def get_bert_tl(self, index):
         "Convert a list of tokens and their corresponding labels"
@@ -89,6 +87,16 @@ class NerDataset(Dataset):
         bert_tokens.append("[SEP]")
         bert_labels.append( PAD )
         return bert_tokens, bert_labels
+
+
+def pad(batch, bertmax=512):
+    seqlens = [x[3] for x,y in batch]
+    maxlen = np.array(seqlens).max()
+
+    pad_fun = lambda xy: [ sample+[0]*(maxlen-len(sample)) for sample in xy if isinstance(sample, list) ]
+    padded_batch = [ (pad_fun(x), pad_fun(y)) for x , y in batch ]
+
+    return padded_batch
 
 # TODO compare difference between broken up tokens (e.g. predict and not predict)
 

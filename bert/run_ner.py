@@ -13,7 +13,7 @@ from fastai.metrics import fbeta
 from fastai.train import to_fp16
 from learner import (BertForNER, OneHotCallBack, conll_f1, create_fp16_cb,
                      ner_loss_func)
-from ner_data import NerDataset
+from ner_data import NerDataset, pad
 from optimizer import BertAdam
 from pytorch_pretrained_bert import BertModel
 from pytorch_pretrained_bert.tokenization import BertTokenizer
@@ -58,19 +58,22 @@ def run_ner(bert_model:str='bert-base-uncased',
     train_dl = DataLoader(
         dataset=NerDataset(trainset, tokenizer=tokenizer, ds_size=ds_size),
         batch_size=batch_size,
-        shuffle=True
+        shuffle=True,
+        collate_fn=pad
     )
 
     dev_dl = DataLoader(
         dataset=NerDataset(devset, tokenizer=tokenizer, ds_size=ds_size),
         batch_size=batch_size,
-        shuffle=False
+        shuffle=False,
+        collate_fn=pad
     )
 
     test_dl = DataLoader(
         dataset=NerDataset(testset, tokenizer=tokenizer, ds_size=ds_size),
         batch_size=batch_size,
-        shuffle=False
+        shuffle=False,
+        collate_fn=pad
     )
 
     data = DataBunch(
