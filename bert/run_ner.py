@@ -80,6 +80,7 @@ def run_ner(bert_model:str='bert-base-uncased',
         train_dl= train_dl,
         valid_dl= dev_dl,
         test_dl = test_dl,
+        collate_fn=pad,
         path = Path(data_bunch_path)
     )
 

@@ -23,7 +23,7 @@ class BertForNER(BertPreTrainedModel):
         self.hidden2label = torch.nn.Linear(config.hidden_size, self.num_labels)
         self.apply(self.init_bert_weights)
 
-    def forward(self, input_ids, segment_ids, input_mask):
+    def forward(self, input_ids, segment_ids, input_mask ):
         bert_layer, _ = self.bert(input_ids, segment_ids, input_mask, output_all_encoded_layers=False)
 
         # if one_hot_labels is not None:
@@ -44,8 +44,7 @@ def ner_loss_func(out, *ys, cross_ent=False):
     if cross_ent: # use torch cross entropy loss
         logits = logits.view(-1, logits.shape[-1])
         y = label_ids.view(-1)
-        print(logits)
-        print(y)
+
         fc =  torch.nn.CrossEntropyLoss(ignore_index=0)
         # need mask???
         return fc(logits, y)

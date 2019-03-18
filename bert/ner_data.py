@@ -52,7 +52,7 @@ class NerDataset(Dataset):
         label_mask = [0] + [1] * (seqlen-2) + [0]
         # assert self.max_seq_len == len(input_ids) == len(segment_ids) == len(one_hot_labels)
 
-        return ( (input_ids, segment_ids, input_mask, seqlen)  ,
+        return ( (input_ids, segment_ids, input_mask )  ,
                  (one_hot_labels, label_ids, label_mask) )
 
     def get_bert_tl(self, index):
@@ -88,15 +88,22 @@ class NerDataset(Dataset):
         bert_labels.append( PAD )
         return bert_tokens, bert_labels
 
-
 def pad(batch, bertmax=512):
-    seqlens = [x[3] for x,y in batch]
+    seqlens = [len(x[0]) for x,_ in batch]
     maxlen = np.array(seqlens).max()
 
-    pad_fun = lambda xy: [ sample+[0]*(maxlen-len(sample)) for sample in xy if isinstance(sample, list) ]
-    padded_batch = [ (pad_fun(x), pad_fun(y)) for x , y in batch ]
+    pad_fun = lambda sample: (sample+[0]*(maxlen-len(sample)))
+    t = torch.tensor
 
-    return padded_batch
+    input_ids = t([ pad_fun(x[0]) for x,_ in batch])
+    segment_ids = t([ pad_fun(x[1]) for x,_ in batch])
+    input_mask = t([ pad_fun(x[2]) for x,_ in batch])
+    label_ids = t([ pad_fun(y[1]) for _,y in batch])
+    label_mask = t([ pad_fun(y[2]) for _,y in batch])
+    one_hot_labels = t([np.eye(len(label2idx), dtype=np.float32)[sample] for sample in label_ids])
+
+    return ( (input_ids, segment_ids, input_mask )  ,
+             (one_hot_labels, label_ids, label_mask.byte() ) )
 
 # TODO compare difference between broken up tokens (e.g. predict and not predict)
 
