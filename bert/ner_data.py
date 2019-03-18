@@ -95,15 +95,21 @@ def pad(batch, bertmax=512):
     pad_fun = lambda sample: (sample+[0]*(maxlen-len(sample)))
     t = torch.tensor
 
-    input_ids = t([ pad_fun(x[0]) for x,_ in batch])
-    segment_ids = t([ pad_fun(x[1]) for x,_ in batch])
-    input_mask = t([ pad_fun(x[2]) for x,_ in batch])
-    label_ids = t([ pad_fun(y[1]) for _,y in batch])
-    label_mask = t([ pad_fun(y[2]) for _,y in batch])
-    one_hot_labels = t([np.eye(len(label2idx), dtype=np.float32)[sample] for sample in label_ids])
+    input_ids, segment_ids, input_mask =  [],[],[]
+    label_ids, label_mask, one_hot_labels = [],[],[]
 
-    return ( (input_ids, segment_ids, input_mask )  ,
-             (one_hot_labels, label_ids, label_mask.byte() ) )
+    for x, y in batch:
+        input_ids.append( pad_fun(x[0]) )
+        segment_ids.append( pad_fun(x[1]))
+        input_mask.append( pad_fun(x[2]))
+
+        label_id = pad_fun(y[1])
+        label_ids.append(label_id)
+        label_mask.append( pad_fun(y[2]))
+        one_hot_labels.append(np.eye(len(label2idx), dtype=np.float32)[label_id]
+
+    return ( ( t(input_ids), t(segment_ids), t(input_mask) )  ,
+             ( t(one_hot_labels), t(label_ids), t(label_mask).byte() ) )
 
 # TODO compare difference between broken up tokens (e.g. predict and not predict)
 
