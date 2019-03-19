@@ -43,7 +43,7 @@ class BertForNER(BertPreTrainedModel):
 
 def ner_loss_func(out, *ys, cross_ent=False):
     write_log("===========\n\tLOSS")
-    _ = ner_ys_masked(out, ys)
+    _ = ner_ys_masked(out, ys, log=True)
 
     logits = out
     one_hot_labels, label_ids, label_mask = ys

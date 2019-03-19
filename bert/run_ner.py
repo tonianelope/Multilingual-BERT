@@ -113,10 +113,11 @@ def run_ner(bert_model:str='bert-base-uncased',
 
     if fp16: learn.to_fp16(loss_scale=loss_scale, dynamic=dynamic)
 
-    # learn.lr_find()
-    # learn.recorder.plot(skip_end=15)
+    learn.lr_find()
+    learn.recorder.plot(skip_end=15)
 
-    learn.fit(epochs, lr)
+    
+    # learn.fit(epochs, lr)
 
     m_path = learn.save("ner_trained_model", return_path=True)
     logging.info(f'Saved model to {m_path}')
