@@ -26,9 +26,12 @@ logging.basicConfig(filename='run_ner.log',
                     level=logging.INFO
 )
 
-def run_ner(bert_model:str='bert-base-uncased',
+NER = 'ner'
+
+def run_ner(bert_model:str='bert-base-cased',
+            task:str=NER,
             batch_size:int=1,
-            lr:float=0.0001,
+            lr:float=5e-5,
             epochs:int=1,
             trainset:str='data/conll-2003/eng/train.txt',
             devset:str='data/conll-2003/eng/dev.txt',
@@ -52,26 +55,25 @@ def run_ner(bert_model:str='bert-base-uncased',
         raise ValueError(f"""Invalid grad_acc_steps parameter:
                          {grad_acc_steps}, should be >= 1""")
 
-    tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=do_lower_case)
     # TODO proper training with grad accum step??
     batch_size //= grad_acc_steps
 
     train_dl = DataLoader(
-        dataset=NerDataset(trainset, tokenizer=tokenizer, ds_size=ds_size),
+        dataset=NerDataset(trainset, ds_size=ds_size),
         batch_size=batch_size,
         shuffle=True,
         collate_fn=pad
     )
 
     dev_dl = DataLoader(
-        dataset=NerDataset(devset, tokenizer=tokenizer, ds_size=ds_size),
+        dataset=NerDataset(devset, ds_size=ds_size),
         batch_size=batch_size,
         shuffle=False,
         collate_fn=pad
     )
 
     test_dl = DataLoader(
-        dataset=NerDataset(testset, tokenizer=tokenizer, ds_size=ds_size),
+        dataset=NerDataset(testset, ds_size=ds_size),
         batch_size=batch_size,
         shuffle=False,
         collate_fn=pad
@@ -113,11 +115,10 @@ def run_ner(bert_model:str='bert-base-uncased',
 
     if fp16: learn.to_fp16(loss_scale=loss_scale, dynamic=dynamic)
 
-    learn.lr_find()
-    learn.recorder.plot(skip_end=15)
+    # learn.lr_find()
+    # learn.recorder.plot(skip_end=15)
 
-    
-    # learn.fit(epochs, lr)
+    learn.fit(epochs, lr)
 
     m_path = learn.save("ner_trained_model", return_path=True)
     logging.info(f'Saved model to {m_path}')
