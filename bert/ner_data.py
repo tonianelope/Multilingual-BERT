@@ -44,18 +44,16 @@ class NerDataset(Dataset):
         labels = bert_labels # TODO why uncommented????
         label_ids = [label2idx[l] for l in labels]
 
-        input_mask = [1] * len(input_ids) + [0] * (self.max_seq_len - len(input_ids))
-        label_mask =[0] + [1] * (len(label_ids)-2) + [0] * (self.max_seq_len - len(label_ids)+1)
-        segment_ids = [0] * self.max_seq_len # all sent A no sent B
-        label_ids += [label2idx[PAD]] * (self.max_seq_len - len(label_ids))
-        input_ids += [0] * (self.max_seq_len - len(input_ids))
-
         one_hot_labels = np.eye(len(label2idx), dtype=np.float32)[label_ids]
 
-        assert self.max_seq_len == len(input_ids) == len(segment_ids) == len(one_hot_labels)
+        seqlen = len(label_ids)
+        segment_ids = [0] * seqlen
+        input_mask = [1] * seqlen
+        label_mask = [0] + [1] * (seqlen-2) + [0]
+        # assert self.max_seq_len == len(input_ids) == len(segment_ids) == len(one_hot_labels)
 
-        return ( (torch.tensor(input_ids), torch.tensor(segment_ids), torch.tensor(input_mask)) ,
-                 (torch.tensor(one_hot_labels), torch.tensor(label_ids), torch.ByteTensor(label_mask)) )
+        return ( (input_ids, segment_ids, input_mask )  ,
+                 (one_hot_labels, label_ids, label_mask) )
 
     def get_bert_tl(self, index):
         "Convert a list of tokens and their corresponding labels"
@@ -89,6 +87,29 @@ class NerDataset(Dataset):
         bert_tokens.append("[SEP]")
         bert_labels.append( PAD )
         return bert_tokens, bert_labels
+
+def pad(batch, bertmax=512):
+    seqlens = [len(x[0]) for x,_ in batch]
+    maxlen = np.array(seqlens).max()
+
+    pad_fun = lambda sample: (sample+[0]*(maxlen-len(sample)))
+    t = torch.tensor
+
+    input_ids, segment_ids, input_mask =  [],[],[]
+    label_ids, label_mask, one_hot_labels = [],[],[]
+
+    for x, y in batch:
+        input_ids.append( pad_fun(x[0]) )
+        segment_ids.append( pad_fun(x[1]))
+        input_mask.append( pad_fun(x[2]))
+
+        label_id = pad_fun(y[1])
+        label_ids.append(label_id)
+        label_mask.append( pad_fun(y[2]))
+        one_hot_labels.append(np.eye(len(label2idx), dtype=np.float32)[label_id])
+
+    return ( ( t(input_ids), t(segment_ids), t(input_mask) )  ,
+             ( t(one_hot_labels), t(label_ids), t(label_mask).byte() ) )
 
 # TODO compare difference between broken up tokens (e.g. predict and not predict)
 

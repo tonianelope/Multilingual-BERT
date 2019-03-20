@@ -13,7 +13,7 @@ from fastai.metrics import fbeta
 from fastai.train import to_fp16
 from learner import (BertForNER, OneHotCallBack, conll_f1, create_fp16_cb,
                      ner_loss_func)
-from ner_data import NerDataset
+from ner_data import NerDataset, pad
 from optimizer import BertAdam
 from pytorch_pretrained_bert import BertModel
 from pytorch_pretrained_bert.tokenization import BertTokenizer
@@ -40,6 +40,7 @@ def run_ner(bert_model:str='bert-base-uncased',
             rand_seed:int=42,
             fp16:bool=False,
             loss_scale:float=None,
+            cross_ent:bool=False,
             ds_size:int=None,
             data_bunch_path:str='data/conll-2003/db'):
 
@@ -58,25 +59,29 @@ def run_ner(bert_model:str='bert-base-uncased',
     train_dl = DataLoader(
         dataset=NerDataset(trainset, tokenizer=tokenizer, ds_size=ds_size),
         batch_size=batch_size,
-        shuffle=True
+        shuffle=True,
+        collate_fn=pad
     )
 
     dev_dl = DataLoader(
         dataset=NerDataset(devset, tokenizer=tokenizer, ds_size=ds_size),
         batch_size=batch_size,
-        shuffle=False
+        shuffle=False,
+        collate_fn=pad
     )
 
     test_dl = DataLoader(
         dataset=NerDataset(testset, tokenizer=tokenizer, ds_size=ds_size),
         batch_size=batch_size,
-        shuffle=False
+        shuffle=False,
+        collate_fn=pad
     )
 
     data = DataBunch(
         train_dl= train_dl,
         valid_dl= dev_dl,
         test_dl = test_dl,
+        collate_fn=pad,
         path = Path(data_bunch_path)
     )
 
@@ -85,6 +90,7 @@ def run_ner(bert_model:str='bert-base-uncased',
 
     train_opt_steps = int(len(train_dl.dataset) / batch_size / grad_acc_steps) * epochs
     f1 = partial(fbeta, beta=1, sigmoid=False)
+    loss_fun = partial(ner_loss_func, cross_ent=cross_ent)
     fp16_cb_fns = partial(create_fp16_cb,
                           train_opt_steps = train_opt_steps,
                           gradient_accumulation_steps = grad_acc_steps,
@@ -101,16 +107,17 @@ def run_ner(bert_model:str='bert-base-uncased',
         optim, dynamic=(FusedAdam, True) if not loss_scale else (FP16_Optimizer,False)
 
     learn = Learner(data, model, optim,
-                    loss_func=ner_loss_func,
+                    loss_func=loss_fun,
                     metrics=[OneHotCallBack(conll_f1)],
                     callback_fns=fp16_cb_fns)
 
     if fp16: learn.to_fp16(loss_scale=loss_scale, dynamic=dynamic)
 
-    # learn.lr_find()
-    # learn.recorder.plot(skip_end=15)
+    learn.lr_find()
+    learn.recorder.plot(skip_end=15)
 
-    learn.fit(epochs, lr)
+    
+    # learn.fit(epochs, lr)
 
     m_path = learn.save("ner_trained_model", return_path=True)
     logging.info(f'Saved model to {m_path}')
