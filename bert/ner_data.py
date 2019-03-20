@@ -17,7 +17,7 @@ TRAIN = 'train'
 DEV = 'dev'
 TEST = 'test'
 
-TOKENIZER = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=True)
+TOKENIZER = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
 
 class NerDataset(Dataset):
     """
@@ -38,22 +38,43 @@ class NerDataset(Dataset):
         return len(self.sents)
 
     def __getitem__(self, index):
-        bert_tokens, bert_labels = self.get_bert_tl(index)
+        text, labels = self.sents[index], self.labels[index]
 
-        input_ids = self.tokenizer.convert_tokens_to_ids(bert_tokens)
-        labels = bert_labels # TODO why uncommented????
-        label_ids = [label2idx[l] for l in labels]
+        lst_text = ["[CLS]"] + str(text).split() + ["[SEP]"]
+        lst_labels = [PAD] + labels.split() + [PAD]
 
-        one_hot_labels = np.eye(len(label2idx), dtype=np.float32)[label_ids]
 
-        seqlen = len(label_ids)
+        # We give credits only to the first piece.
+        x, y = [], [] # list of ids
+        is_heads = [] # list. 1: the token is the first piece of a word (see paper and wordpiece tokenization)
+        for w, t in zip(lst_text, lst_labels):
+            tokens = self.tokenizer.tokenize(w) if w not in ("[CLS]", "[SEP]") else [w]
+            xx = self.tokenizer.convert_tokens_to_ids(tokens)
+
+            is_head = [1] + [0]*(len(tokens) - 1)
+
+            t = [t] + [PAD] * (len(tokens) - 1)  # <PAD>: no decision
+            yy = [label2idx[each] for each in t]  # (T,)
+
+            if self.max_seq_len - 1 < len(x) + len(xx):
+                break
+
+            x.extend(xx)
+            is_heads.extend(is_head)
+            y.extend(yy)
+
+        one_hot_labels = np.eye(len(label2idx), dtype=np.float32)[y]
+
+        seqlen = len(y)
         segment_ids = [0] * seqlen
-        input_mask = [1] * seqlen
-        label_mask = [0] + [1] * (seqlen-2) + [0]
-        # assert self.max_seq_len == len(input_ids) == len(segment_ids) == len(one_hot_labels)
+        x_mask = is_heads
+        y_mask = [0] + is_heads[1:-1] + [0]
 
-        return ( (input_ids, segment_ids, input_mask )  ,
-                 (one_hot_labels, label_ids, label_mask) )
+        assert_str = f"len(x)={len(x)}, len(y)={len(y)}, len(x_mask)={len(x_mask)}, len(y_mask)={len(y_mask)},"
+        assert len(x)==len(y)==len(x_mask)==len(y_mask), assert_str
+
+        return ( (x, segment_ids, x_mask )  ,
+                 (one_hot_labels, y, y_mask) )
 
     def get_bert_tl(self, index):
         "Convert a list of tokens and their corresponding labels"
@@ -67,15 +88,14 @@ class NerDataset(Dataset):
         prev_label = ""
 
         for i, (orig_token, label) in enumerate(zip(orig_tokens, labels)):
-            prefix = ['', '']
+            prefix = ''
             if label != 'O':
                 label = label.split("-")[1]
-                prefix[0] = 'I-' if label==prev_label else 'B-'
-                prefix[1] = 'I-'
+                prefix = 'I-' if label==prev_label else 'B-'
             prev_label = label
             cur_tokens = self.tokenizer.tokenize(orig_token)
             if not cur_tokens: logging.info(orig_token)
-            cur_labels = [f'{prefix[0]}{label}']+[f'{prefix[1]}{label}']*(len(cur_tokens)-1)
+            cur_labels = [f'{prefix}{label}']+[PAD]*(len(cur_tokens)-1)
 
             # TODO log to long examples
             if self.max_seq_len - 1 < len(bert_tokens) + len(cur_tokens):
