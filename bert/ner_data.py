@@ -73,7 +73,7 @@ class NerDataset(Dataset):
         assert_str = f"len(x)={len(x)}, len(y)={len(y)}, len(x_mask)={len(x_mask)}, len(y_mask)={len(y_mask)},"
         assert len(x)==len(y)==len(x_mask)==len(y_mask), assert_str
 
-        return ( (x, segment_ids, x_mask)  ,
+        return ( (x, segment_ids, x_mask )  ,
                  (one_hot_labels, y, y_mask) )
 
     def get_bert_tl(self, index):
