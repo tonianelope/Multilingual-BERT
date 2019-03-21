@@ -73,7 +73,7 @@ class NerDataset(Dataset):
         assert_str = f"len(x)={len(x)}, len(y)={len(y)}, len(x_mask)={len(x_mask)}, len(y_mask)={len(y_mask)},"
         assert len(x)==len(y)==len(x_mask)==len(y_mask), assert_str
 
-        return ( (x, segment_ids, x_mask )  ,
+        return ( (x, segment_ids, x_mask)  ,
                  (one_hot_labels, y, y_mask) )
 
     def get_bert_tl(self, index):
@@ -115,8 +115,8 @@ def pad(batch, bertmax=512):
     pad_fun = lambda sample: (sample+[0]*(maxlen-len(sample)))
     t = torch.tensor
 
-    input_ids, segment_ids, input_mask =  [],[],[]
-    label_ids, label_mask, one_hot_labels = [],[],[]
+    input_ids, segment_ids, input_mask, texts =  [],[],[], []
+    label_ids, label_mask, one_hot_labels, labels = [],[],[],[]
 
     for x, y in batch:
         input_ids.append( pad_fun(x[0]) )
@@ -128,8 +128,8 @@ def pad(batch, bertmax=512):
         label_mask.append( pad_fun(y[2]))
         one_hot_labels.append(np.eye(len(label2idx), dtype=np.float32)[label_id])
 
-    return ( ( t(input_ids), t(segment_ids), t(input_mask) )  ,
-             ( t(one_hot_labels), t(label_ids), t(label_mask).byte() ) )
+    return ( ( t(input_ids), t(segment_ids), t(input_mask))  ,
+             ( t(one_hot_labels), t(label_ids), t(label_mask).byte()) )
 
 # TODO compare difference between broken up tokens (e.g. predict and not predict)
 

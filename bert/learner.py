@@ -8,10 +8,32 @@ from fastai.callback import Callback
 from fastai.core import is_listy
 from fastai.metrics import fbeta
 from fastai.torch_core import add_metrics, num_distrib
-from ner_data import VOCAB
+from ner_data import TOKENIZER, VOCAB, idx2label
 from pytorch_pretrained_bert.modeling import BertModel, BertPreTrainedModel
 from pytorch_pretrained_bert.optimization import warmup_linear
 
+
+def write_eval(msg, epoch):
+    with open(f'eval_{epoch}.txt', 'a') as f:
+        f.write(msg+'\n')
+
+def write_eval_text(last_input, pred, true, epoch):
+    last_input = last_input[0]
+    for text, label, pred in zip(last_input, true, pred):
+        text = TOKENIZER.convert_ids_to_tokens(text.tolist())
+        org_text = []
+        tok = ''
+        for i in range(1, len(text)):
+            if not text[i].startswith('##'):
+                org_text.append(tok.replace('##', ''))
+                tok = ''
+            tok += text[i]
+
+        for w, t, p in zip(org_text[1:-1], label, pred):
+            t = idx2label[t.item()]
+            p = idx2label[p.item()]
+            write_eval(f"{w} {t} {p} {t==p}" ,epoch)
+        write_eval("\n", epoch)
 
 def write_log(msg):
     with open('out.txt', 'a') as f:
@@ -64,7 +86,7 @@ def ner_loss_func(out, *ys, cross_ent=False):
 
 def ner_ys_masked(output, target, log=False):
 
-    _, label_ids, label_mask = target
+    _, label_ids, label_mask  = target
 
     out = output.argmax(-1)
     out_masked, target_masked = [], []
@@ -76,6 +98,7 @@ def ner_ys_masked(output, target, log=False):
           write_log(f'P: {o}')
         out_masked.append(o)
         target_masked.append(t)
+
     return out_masked, target_masked
 
 class OneHotCallBack(Callback):
@@ -84,6 +107,7 @@ class OneHotCallBack(Callback):
         # If it's a partial, use func.func
         name = getattr(func,'func', func).__name__
         self.func, self.name = func, name
+        self.epoch = 1
         self.world = num_distrib()
 
     def on_epoch_begin(self, **kwargs):
@@ -93,7 +117,8 @@ class OneHotCallBack(Callback):
 
     def on_batch_end(self, last_output, last_target, **kwargs):
         "Update metric computation with `last_output` and `last_target`."
-        out_masked, target_masked = ner_ys_masked(last_output, last_target)
+        out_masked, target_masked = ner_ys_masked(last_output, last_target )
+        write_eval_text(kwargs['last_input'], out_masked, target_masked, self.epoch)
 
         logging.info(f'masked target: {target_masked}')
         logging.info(f'masked output: {out_masked}')
@@ -109,6 +134,7 @@ class OneHotCallBack(Callback):
 
     def on_epoch_end(self, last_metrics, **kwargs):
         "Set the final result in `last_metrics`."
+        self.epoch +=1
         return add_metrics(last_metrics, self.val/self.count)
 
 def conll_f1(pred, *true, eps:float = 1e-9):
@@ -126,6 +152,7 @@ def conll_f1(pred, *true, eps:float = 1e-9):
         scores[i]= f1
     write_log(f'===============\nscores: {scores}')
     write_log(f'Mean: {scores.mean()}')
+    write_eval(f'F1={scores.mean()}', 4)
     return torch.Tensor([scores.mean()])
 
 def create_fp16_cb(learn, **kwargs):
