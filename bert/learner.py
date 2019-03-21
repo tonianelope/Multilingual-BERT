@@ -126,6 +126,8 @@ class OneHotCallBack(Callback):
         if not is_listy(target_masked): target_masked=[target_masked]
         self.count += target_masked[0].size(0)
         val = self.func(out_masked, *target_masked)
+        write_eval(f'F1={val}', self.epoch)
+
         if self.world:
             val = val.clone()
             dist.all_reduce(val, op=dist.ReduceOp.SUM)
@@ -152,7 +154,6 @@ def conll_f1(pred, *true, eps:float = 1e-9):
         scores[i]= f1
     write_log(f'===============\nscores: {scores}')
     write_log(f'Mean: {scores.mean()}')
-    write_eval(f'F1={scores.mean()}', 4)
     return torch.Tensor([scores.mean()])
 
 def create_fp16_cb(learn, **kwargs):
