@@ -40,27 +40,27 @@ def write_log(msg):
         f.write(msg+'\n')
 
 
-class BertForNER(BertPreTrainedModel):
+class BertForNER(torch.nn.Module):
 
-    def __init__(self, config):
-        super(BertForNER, self).__init__(config)
+    def __init__(self):
+        super().__init__()
+        
+        self.bert = BertModel.from_pretrained('bert-base-cased')
+
         self.num_labels = len(VOCAB)
-        self.bert = BertModel(config)
+        self.fc = torch.nn.Linear(768, self.num_labels)
+
         self.dropout = torch.nn.Dropout(0.2)
-        self.hidden2label = torch.nn.Linear(config.hidden_size, self.num_labels)
-        self.apply(self.init_bert_weights)
 
     def forward(self, input_ids, segment_ids, input_mask ):
-        bert_layer, _ = self.bert(input_ids, segment_ids, input_mask, output_all_encoded_layers=False)
-
+        self.bert.train()
+        enc_layer, _ = self.bert(input_ids, segment_ids, input_mask)
+        bert_layer = enc_layer[-1]
         # if one_hot_labels is not None:
         #     bert_layer = self.dropout(bert_layer) # TODO comapre to without dropout
-        logits = self.hidden2label(bert_layer)
+        logits = self.fc(bert_layer)
         y_hat = logits.argmax(-1)
-        #logging.info(f'Y_hat {y_hat.size()}\n{y_hat}\n')
-        y_hat = torch.tensor(np.eye(self.num_labels, dtype=np.float32)[y_hat])
-        #logging.info(f'One_hat {y_hat.size()}\n{y_hat}\n')
-        #logging.info(f'LOGITS {logits.size()}\n{logits}\n')
+        #y_hat = torch.tensor(np.eye(self.num_labels, dtype=np.float32)[y_hat])
         return logits #, y_hat
 
 def ner_loss_func(out, *ys, cross_ent=False):

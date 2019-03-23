@@ -28,8 +28,7 @@ logging.basicConfig(filename='run_ner.log',
 
 NER = 'ner'
 
-def run_ner(bert_model:str='bert-base-cased',
-            task:str=NER,
+def run_ner(task:str=NER,
             batch_size:int=1,
             lr:float=5e-5,
             epochs:int=1,
@@ -87,7 +86,7 @@ def run_ner(bert_model:str='bert-base-cased',
         path = Path(data_bunch_path)
     )
 
-    model = BertForNER.from_pretrained(bert_model)
+    model = BertForNER()
     optim = BertAdam
 
     train_opt_steps = int(len(train_dl.dataset) / batch_size / grad_acc_steps) * epochs
