@@ -1,9 +1,9 @@
 D_TRAIN=https://raw.githubusercontent.com/Nidhi-K/Natural-Language-Processing-Projects/master/Sequential%20CRF%20for%20NER/data/deu.train
 D_VALID=https://raw.githubusercontent.com/Nidhi-K/Natural-Language-Processing-Projects/master/Sequential%20CRF%20for%20NER/data/deu.testa
 D_TEST=https://raw.githubusercontent.com/Nidhi-K/Natural-Language-Processing-Projects/master/Sequential%20CRF%20for%20NER/data/deu.testb
-TRAIN=https://raw.githubusercontent.com/Emrys-Hong/fastai_sequence_tagging/master/data/coNLL/train.txt
-VALID=https://raw.githubusercontent.com/Emrys-Hong/fastai_sequence_tagging/master/data/coNLL/valid.txt
-TEST=https://raw.githubusercontent.com/Emrys-Hong/fastai_sequence_tagging/master/data/coNLL/test.txt
+TRAIN=https://raw.githubusercontent.com/kyzhouhzau/BERT-NER/master/NERdata/train.txt
+VALID=https://raw.githubusercontent.com/kyzhouhzau/BERT-NER/master/NERdata/dev.txt
+TEST=https://raw.githubusercontent.com/kyzhouhzau/BERT-NER/master/NERdata/test.txt
 
 EXEC=python run_ner.py
 
@@ -36,7 +36,7 @@ datasets:
 dataset-eng:
 	mkdir -p data/conll-2003/eng
 	wget --show-progress $(TRAIN) && mv train.txt data/conll-2003/eng
-	wget --show-progress $(VALID) && mv valid.txt dev.txt && mv dev.txt data/conll-2003/eng
+	wget --show-progress $(VALID) && mv dev.txt data/conll-2003/eng
 	wget --show-progress $(TEST) && mv test.txt data/conll-2003/eng
 
 dataset-deu:
