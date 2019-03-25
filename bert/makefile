@@ -13,7 +13,7 @@ run:
 	$(EXEC) --batch-size=32 --epochs=4 --lr=5e-5 --cross-ent=True $(W)
 
 run-c:
-	$(EXEC) --batch-size=32 --epochs=3 --lr=5e-5 --cross-ent=True $(W)
+	$(EXEC) --batch-size=8 --epochs=3 --lr=5e-5 --cross-ent=True $(W)
 
 run-nc:
 	$(EXEC) --batch-size=32 --epochs=3 --lr=5e-5 --cross-ent=False $(W)

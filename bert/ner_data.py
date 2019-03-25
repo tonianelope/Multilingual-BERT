@@ -30,7 +30,18 @@ class NerDataset(Dataset):
     def __init__(self, filepath, tokenizer=TOKENIZER, max_seq_len=512, ds_size=None):
         data = read_conll_data(filepath)
         if ds_size: data = data[:ds_size]
-        self.labels, self.sents = zip(*data)
+        sents, labels = [],[]
+        for tags, words in data:
+            words = words.split()
+            tags = tags.split()
+            tokens = [t for w in words for t in tokenizer.tokenize(w)] 
+            if (len(tokens)+2) > 512:
+                print('Too long example')
+                continue
+
+            sents.append(["[CLS]"]+words+["[SEP]"])
+            labels.append([PAD]+tags+[PAD])
+        self.labels, self.sents = labels, sents
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
 
@@ -40,14 +51,10 @@ class NerDataset(Dataset):
     def __getitem__(self, index):
         text, labels = self.sents[index], self.labels[index]
 
-        lst_text = ["[CLS]"] + str(text).split() + ["[SEP]"]
-        lst_labels = [PAD] + labels.split() + [PAD]
-
-
         # We give credits only to the first piece.
         x, y = [], [] # list of ids
         is_heads = [] # list. 1: the token is the first piece of a word (see paper and wordpiece tokenization)
-        for w, t in zip(lst_text, lst_labels):
+        for w, t in zip(text, labels):
             tokens = self.tokenizer.tokenize(w) if w not in ("[CLS]", "[SEP]") else [w]
             xx = self.tokenizer.convert_tokens_to_ids(tokens)
 
@@ -57,7 +64,8 @@ class NerDataset(Dataset):
             yy = [label2idx[each] for each in t]  # (T,)
 
             if self.max_seq_len - 1 < len(x) + len(xx):
-                break
+                print('Too long example')
+                return self.__getitem__(index+1)
 
             x.extend(xx)
             is_heads.extend(is_head)
@@ -72,6 +80,9 @@ class NerDataset(Dataset):
 
         assert_str = f"len(x)={len(x)}, len(y)={len(y)}, len(x_mask)={len(x_mask)}, len(y_mask)={len(y_mask)},"
         assert len(x)==len(y)==len(x_mask)==len(y_mask), assert_str
+        #print(" ".join(lst_text))
+        #print(" ".join(lst_labels))
+        #print(y)
 
         return ( (x, segment_ids, x_mask )  ,
                  (one_hot_labels, y, y_mask) )

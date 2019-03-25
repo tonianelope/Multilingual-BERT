@@ -56,6 +56,7 @@ class BertForNER(torch.nn.Module):
         self.bert.train()
         enc_layer, _ = self.bert(input_ids, segment_ids, input_mask)
         bert_layer = enc_layer[-1]
+
         # if one_hot_labels is not None:
         #     bert_layer = self.dropout(bert_layer) # TODO comapre to without dropout
         logits = self.fc(bert_layer)
@@ -64,8 +65,9 @@ class BertForNER(torch.nn.Module):
         return logits #, y_hat
 
 def ner_loss_func(out, *ys, cross_ent=False):
+    
     write_log("===========\n\tLOSS")
-    _ = ner_ys_masked(out, ys, log=True)
+    #_ = ner_ys_masked(out, ys, log=True)
 
     logits = out
     one_hot_labels, label_ids, label_mask = ys
@@ -76,7 +78,10 @@ def ner_loss_func(out, *ys, cross_ent=False):
 
         fc =  torch.nn.CrossEntropyLoss(ignore_index=0)
         # need mask???
-        return fc(logits, y)
+        loss =  fc(logits, y)
+        #print(f"loss: {loss}")
+        return loss
+
 
     else:
         p = torch.nn.functional.softmax(logits, -1)
@@ -85,7 +90,6 @@ def ner_loss_func(out, *ys, cross_ent=False):
         return torch.sum(losses)
 
 def ner_ys_masked(output, target, log=False):
-
     _, label_ids, label_mask  = target
 
     out = output.argmax(-1)
@@ -96,10 +100,9 @@ def ner_ys_masked(output, target, log=False):
         if log:
           write_log(f'T: {t}')
           write_log(f'P: {o}')
-        out_masked.append(o)
-        target_masked.append(t)
-
-    return out_masked, target_masked
+        out_masked.extend(o.tolist())
+        target_masked.extend(t.tolist())
+    return torch.tensor(out_masked), torch.tensor(target_masked)
 
 class OneHotCallBack(Callback):
 
@@ -109,6 +112,7 @@ class OneHotCallBack(Callback):
         self.func, self.name = func, name
         self.epoch = 1
         self.world = num_distrib()
+        self.i = 0
 
     def on_epoch_begin(self, **kwargs):
         "Set the inner value to 0."
@@ -120,6 +124,7 @@ class OneHotCallBack(Callback):
         out_masked, target_masked = ner_ys_masked(last_output, last_target )
         write_eval_text(kwargs['last_input'], out_masked, target_masked, self.epoch)
 
+        #print(f"step: loss: {kwargs['last_loss'].item()}")
         logging.info(f'masked target: {target_masked}')
         logging.info(f'masked output: {out_masked}')
 
@@ -127,6 +132,7 @@ class OneHotCallBack(Callback):
         self.count += target_masked[0].size(0)
         val = self.func(out_masked, *target_masked)
         write_eval(f'F1={val}', self.epoch)
+        self.i +=1
 
         if self.world:
             val = val.clone()
@@ -140,21 +146,23 @@ class OneHotCallBack(Callback):
         return add_metrics(last_metrics, self.val/self.count)
 
 def conll_f1(pred, *true, eps:float = 1e-9):
-    scores = np.empty(len(pred))
-    for i in range(len(pred)):
-        y_pred, y_true = pred[i], true[i]
-        all_pos = len(y_pred[y_pred>1])
-        actual_pos = len(y_true[y_true>1])
-        correct_pos =(np.logical_and(y_true==y_pred, y_true>1)).sum().item()
-        logging.info(f'{all_pos} - {actual_pos} -> {correct_pos}')
-        prec = correct_pos / (all_pos + eps)
-        rec = correct_pos / (actual_pos + eps)
-        f1 = (prec*rec)/(prec+rec+eps)
-        logging.info(f'f1: {f1}')
-        scores[i]= f1
-    write_log(f'===============\nscores: {scores}')
-    write_log(f'Mean: {scores.mean()}')
-    return torch.Tensor([scores.mean()])
+    
+    pred, true = ner_ys_masked(pred, true)
+    #print('EVAL')
+    y_pred, y_true = pred.view(-1), true.view(-1)
+    #print(y_pred)
+    #print(y_true)
+    all_pos = len(y_pred[y_pred>1])
+    actual_pos = len(y_true[y_true>1])
+    correct_pos =(np.logical_and(y_true==y_pred, y_true>1)).sum().item()
+    logging.info(f'{all_pos} - {actual_pos} -> {correct_pos}')
+    prec = correct_pos / (all_pos + eps)
+    rec = correct_pos / (actual_pos + eps)
+    f1 = (prec*rec)/(prec+rec+eps)
+    logging.info(f'f1: {f1}')
+    write_log(f'===============\nscores: {f1}')
+    print('f1 ',f1) 
+    return torch.Tensor([f1])
 
 def create_fp16_cb(learn, **kwargs):
     return FP16_Callback(learn, **kwargs)

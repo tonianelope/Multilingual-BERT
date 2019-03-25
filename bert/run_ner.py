@@ -60,7 +60,7 @@ def run_ner(task:str=NER,
     train_dl = DataLoader(
         dataset=NerDataset(trainset, ds_size=ds_size),
         batch_size=batch_size,
-        shuffle=True,
+        shuffle=False,
         collate_fn=pad
     )
 
@@ -87,7 +87,11 @@ def run_ner(task:str=NER,
     )
 
     model = BertForNER()
+    model = torch.nn.DataParallel(model)
+
+
     optim = BertAdam
+    #optim = torch.optim.Adam #(model.parameters(), lr=lr)
 
     train_opt_steps = int(len(train_dl.dataset) / batch_size / grad_acc_steps) * epochs
     f1 = partial(fbeta, beta=1, sigmoid=False)
@@ -109,8 +113,10 @@ def run_ner(task:str=NER,
 
     learn = Learner(data, model, optim,
                     loss_func=loss_fun,
-                    metrics=[OneHotCallBack(conll_f1)],
-                    callback_fns=fp16_cb_fns)
+                    metrics=[conll_f1],
+                    true_wd=False,
+#                    callback_fns=fp16_cb_fns
+                    )
 
     if fp16: learn.to_fp16(loss_scale=loss_scale, dynamic=dynamic)
 
