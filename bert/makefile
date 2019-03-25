@@ -1,4 +1,12 @@
+D_TRAIN=https://raw.githubusercontent.com/Nidhi-K/Natural-Language-Processing-Projects/master/Sequential%20CRF%20for%20NER/data/deu.train
+D_VALID=https://raw.githubusercontent.com/Nidhi-K/Natural-Language-Processing-Projects/master/Sequential%20CRF%20for%20NER/data/deu.testa
+D_TEST=https://raw.githubusercontent.com/Nidhi-K/Natural-Language-Processing-Projects/master/Sequential%20CRF%20for%20NER/data/deu.testb
+TRAIN=https://raw.githubusercontent.com/Emrys-Hong/fastai_sequence_tagging/master/data/coNLL/train.txt
+VALID=https://raw.githubusercontent.com/Emrys-Hong/fastai_sequence_tagging/master/data/coNLL/valid.txt
+TEST=https://raw.githubusercontent.com/Emrys-Hong/fastai_sequence_tagging/master/data/coNLL/test.txt
+
 EXEC=python run_ner.py
+
 
 help:
 	$(EXEC) --help
@@ -27,11 +35,15 @@ datasets:
 
 dataset-eng:
 	mkdir -p data/conll-2003/eng
-	svn co 'https://github.com/kyzhouhzau/BERT-NER/trunk/NERdata/' data/conll-2003/eng
+	wget --show-progress $(TRAIN) && mv train.txt data/conll-2003/eng
+	wget --show-progress $(VALID) && mv valid.txt dev.txt && mv dev.txt data/conll-2003/eng
+	wget --show-progress $(TEST) && mv test.txt data/conll-2003/eng
 
 dataset-deu:
 	mkdir -p data/conll-2003/deu
-	svn co 'https://github.com/Nidhi-K/Natural-Language-Processing-Projects/trunk/Sequential CRF for NER/data/' data/conll-2003/deu
+	wget --show-progress $(D_TRAIN) && mv deu.train train.txt && mv train.txt data/conll-2003/deu
+	wget --show-progress $(D_VALID) && mv deu.testa dev.txt && mv dev.txt data/conll-2003/deu
+	wget --show-progress $(D_TEST) && mv deu.testb test.txt && mv test.txt data/conll-2003/deu
 
 model:
 	wget https://s3.amazonaws.com/models.huggingface.co/bert/$(BERT).tar.gz

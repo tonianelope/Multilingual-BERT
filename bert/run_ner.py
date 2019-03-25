@@ -28,13 +28,14 @@ logging.basicConfig(filename='run_ner.log',
 
 NER = 'ner'
 
-def run_ner(task:str=NER,
+def run_ner(lang:str='eng',
+            task:str=NER,
             batch_size:int=1,
             lr:float=5e-5,
             epochs:int=1,
-            trainset:str='data/conll-2003/eng/train.txt',
-            devset:str='data/conll-2003/eng/dev.txt',
-            testset:str='data/conll-2003/eng/test.txt',
+            trainset:str='data/conll-2003/',
+            devset:str='data/conll-2003/',
+            testset:str='data/conll-2003/',
             max_seq_length:int=512,
             do_lower_case:bool=False,
             warmup_proportion:float=0.1,
@@ -56,6 +57,10 @@ def run_ner(task:str=NER,
 
     # TODO proper training with grad accum step??
     batch_size //= grad_acc_steps
+
+    trainset += lang + '/train.txt'
+    devset += lang + '/dev.txt'
+    testset += lang + '/test.txt'
 
     train_dl = DataLoader(
         dataset=NerDataset(trainset, ds_size=ds_size),
@@ -86,7 +91,7 @@ def run_ner(task:str=NER,
         path = Path(data_bunch_path)
     )
 
-    model = BertForNER()
+    model = BertForNER(lang)
     model = torch.nn.DataParallel(model)
 
 

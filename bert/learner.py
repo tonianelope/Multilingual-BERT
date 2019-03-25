@@ -42,10 +42,11 @@ def write_log(msg):
 
 class BertForNER(torch.nn.Module):
 
-    def __init__(self):
+    def __init__(self, lang):
         super().__init__()
-        
-        self.bert = BertModel.from_pretrained('bert-base-cased')
+
+        bert_model = 'bert-base-cased' if lang=='eng' else 'bert-base-multilingual-cased'
+        self.bert = BertModel.from_pretrained(bert_model)
 
         self.num_labels = len(VOCAB)
         self.fc = torch.nn.Linear(768, self.num_labels)
