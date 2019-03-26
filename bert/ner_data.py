@@ -30,13 +30,14 @@ class NerDataset(Dataset):
     def __init__(self, filepath, tokenizer=TOKENIZER, max_seq_len=512, ds_size=None):
         data = read_conll_data(filepath)
         if ds_size: data = data[:ds_size]
+        skipped=0
         sents, labels = [],[]
         for tags, words in data:
             words = words.split()
             tags = tags.split()
             tokens = [t for w in words for t in tokenizer.tokenize(w)] 
             if (len(tokens)+2) > 512:
-                print('Too long example')
+                skipped +=1
                 continue
 
             sents.append(["[CLS]"]+words+["[SEP]"])
@@ -44,6 +45,7 @@ class NerDataset(Dataset):
         self.labels, self.sents = labels, sents
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
+        print('Skiped examples:',skipped)
 
     def __len__(self):
         return len(self.sents)

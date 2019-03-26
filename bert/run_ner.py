@@ -12,16 +12,16 @@ from fastai.basic_train import Learner
 from fastai.metrics import fbeta
 from fastai.train import to_fp16
 from learner import (BertForNER, OneHotCallBack, conll_f1, create_fp16_cb,
-                     ner_loss_func)
+                     ner_loss_func, write_eval)
 from ner_data import NerDataset, pad
 from optimizer import BertAdam
 from pytorch_pretrained_bert import BertModel
 from pytorch_pretrained_bert.tokenization import BertTokenizer
 from torch.utils.data import DataLoader
 
-logging.basicConfig(filename='run_ner.log',
-                    filemode='a',
-                    format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+logging.basicConfig(filename='logs/logger.log',
+                    filemode='w',
+                    format='%(asctime)s, %(message)s',
                     datefmt='%H:%M%S',
                     level=logging.INFO
 )
@@ -127,8 +127,10 @@ def run_ner(lang:str='eng',
 
     # learn.lr_find()
     # learn.recorder.plot(skip_end=15)
-
-    learn.fit(epochs, lr)
+    for epoch in range(epochs):
+        learn.fit(1, lr)
+        m_path = learn.save(f"epoch_{epoch}_model", return_path=True)
+        write_eval(f'EPOCH{epoch}',epoch=epoch)
 
     m_path = learn.save("ner_trained_model", return_path=True)
     logging.info(f'Saved model to {m_path}')

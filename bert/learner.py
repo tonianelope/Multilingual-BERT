@@ -12,10 +12,20 @@ from ner_data import TOKENIZER, VOCAB, idx2label
 from pytorch_pretrained_bert.modeling import BertModel, BertPreTrainedModel
 from pytorch_pretrained_bert.optimization import warmup_linear
 
+EPOCH = 1
 
-def write_eval(msg, epoch):
-    with open(f'eval_{epoch}.txt', 'a') as f:
+def write_eval(msg, epoch=EPOCH):
+    global EPOCH
+    EPOCH=epoch
+    with open(f'logs/eval_{epoch}.log', 'a') as f:
         f.write(msg+'\n')
+
+def write_eval_lables(pred, true):
+    for p, t in zip(pred, true):
+        t = idx2label[t.item()]
+        p = idx2label[p.item()]
+        write_eval(f"{t} {p} {t==p}")
+    write_eval("\n")
 
 def write_eval_text(last_input, pred, true, epoch):
     last_input = last_input[0]
@@ -36,7 +46,7 @@ def write_eval_text(last_input, pred, true, epoch):
         write_eval("\n", epoch)
 
 def write_log(msg):
-    with open('out.txt', 'a') as f:
+    with open('logs/out.log', 'a') as f:
         f.write(msg+'\n')
 
 
@@ -90,7 +100,7 @@ def ner_loss_func(out, *ys, cross_ent=False):
         losses = torch.masked_select(losses, label_mask) # TODO compare with predict mask
         return torch.sum(losses)
 
-def ner_ys_masked(output, target, log=False):
+def ner_ys_masked(output, target, log=True):
     _, label_ids, label_mask  = target
 
     out = output.argmax(-1)
@@ -151,6 +161,7 @@ def conll_f1(pred, *true, eps:float = 1e-9):
     pred, true = ner_ys_masked(pred, true)
     #print('EVAL')
     y_pred, y_true = pred.view(-1), true.view(-1)
+    write_eval_lables(y_pred, y_true)
     #print(y_pred)
     #print(y_true)
     all_pos = len(y_pred[y_pred>1])

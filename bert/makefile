@@ -11,7 +11,7 @@ EXEC=python run_ner.py
 help:
 	$(EXEC) --help
 
-test:
+test1:
 	$(EXEC) --ds-size=1 $(W)
 
 apex-test:
@@ -47,6 +47,9 @@ dataset-deu:
 
 model:
 	wget https://s3.amazonaws.com/models.huggingface.co/bert/$(BERT).tar.gz
+
+mv-logs:
+	mv *.log $(DIR)
 
 clean-logs:
 	rm *.log
