@@ -12,7 +12,7 @@ from ner_data import TOKENIZER, VOCAB, idx2label
 from pytorch_pretrained_bert.modeling import BertModel, BertPreTrainedModel
 from pytorch_pretrained_bert.optimization import warmup_linear
 
-EPOCH = 1
+EPOCH =0 
 
 def write_eval(msg, epoch=EPOCH):
     global EPOCH
@@ -157,11 +157,17 @@ class OneHotCallBack(Callback):
         return add_metrics(last_metrics, self.val/self.count)
 
 def conll_f1(pred, *true, eps:float = 1e-9):
-    
-    pred, true = ner_ys_masked(pred, true)
-    #print('EVAL')
-    y_pred, y_true = pred.view(-1), true.view(-1)
+    pred = pred.argmax(-1)
+    _, label_ids, label_mask = true 
+    mask = label_mask.view(-1)
+    pred = pred.view(-1)
+    labels = label_ids.view(-1)
+    y_pred = torch.masked_select(pred, mask) 
+    y_true = torch.masked_select(labels, mask) 
     write_eval_lables(y_pred, y_true)
+    logging.info('EVAL')
+    logging.info(y_pred)
+    logging.info(y_true)
     #print(y_pred)
     #print(y_true)
     all_pos = len(y_pred[y_pred>1])
@@ -170,10 +176,10 @@ def conll_f1(pred, *true, eps:float = 1e-9):
     logging.info(f'{all_pos} - {actual_pos} -> {correct_pos}')
     prec = correct_pos / (all_pos + eps)
     rec = correct_pos / (actual_pos + eps)
-    f1 = (prec*rec)/(prec+rec+eps)
+    f1 = (2*prec*rec)/(prec+rec+eps)
     logging.info(f'f1: {f1}')
     write_log(f'===============\nscores: {f1}')
-    print('f1 ',f1) 
+    #print('f1 ',f1) 
     return torch.Tensor([f1])
 
 def create_fp16_cb(learn, **kwargs):

@@ -23,6 +23,9 @@ run:
 run-c:
 	$(EXEC) --batch-size=8 --epochs=3 --lr=5e-5 --cross-ent=True $(W)
 
+run-b:
+	$(EXEC) --batch-size=16 --epochs=3 --lr=5e-5 --cross-ent=True $(W)
+
 run-nc:
 	$(EXEC) --batch-size=32 --epochs=3 --lr=5e-5 --cross-ent=False $(W)
 
