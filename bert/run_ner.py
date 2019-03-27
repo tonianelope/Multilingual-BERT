@@ -65,21 +65,21 @@ def run_ner(lang:str='eng',
     print(f'Lang: {lang}\nModel: {bert_model}')
 
     train_dl = DataLoader(
-        dataset=NerDataset(trainset,bert_model, ds_size=ds_size),
+        dataset=NerDataset(trainset,bert_model,max_seq_length=max_seq_length, ds_size=ds_size),
         batch_size=batch_size,
         shuffle=True,
         collate_fn=pad
     )
 
     dev_dl = DataLoader(
-        dataset=NerDataset(devset, bert_model, ds_size=ds_size),
+        dataset=NerDataset(devset, bert_model,max_seq_length=max_seq_length, ds_size=ds_size),
         batch_size=batch_size,
         shuffle=False,
         collate_fn=pad
     )
 
     test_dl = DataLoader(
-        dataset=NerDataset(testset, bert_model, ds_size=ds_size),
+        dataset=NerDataset(testset, bert_model,max_seq_length=max_seq_length, ds_size=ds_size),
         batch_size=batch_size,
         shuffle=False,
         collate_fn=pad
