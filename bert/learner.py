@@ -56,8 +56,21 @@ class BertForNER(torch.nn.Module):
         return logits #, y_hat
 
 def ner_loss_func(out, *ys, cross_ent=False):
-    print('loss', out)
-    return out
+    loss = out
+    if not out.shape==torch.Size([1]):
+        print(out.shape)
+        loss_fct = torch.nn.CrossEntropyLoss()
+        _, labels, attention_mask = ys
+        # Only keep active parts of the loss
+        if attention_mask is not None:
+            active_loss = attention_mask.view(-1) == 1
+            active_logits = out.view(-1, len(VOCAB))[active_loss]
+            active_labels = labels.view(-1)[active_loss]
+            loss = loss_fct(active_logits, active_labels)
+        else:
+            loss = loss_fct(logits.view(-1, len(VOCAB)), labels.view(-1))
+    print('loss', loss)
+    return loss
     # write_log("===========\n\tLOSS")
     # #_ = ner_ys_masked(out, ys, log=True)
 
