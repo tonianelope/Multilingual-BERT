@@ -35,7 +35,7 @@ def run_ner(lang:str='eng',
             trainset:str='data/conll-2003/',
             devset:str='data/conll-2003/',
             testset:str='data/conll-2003/',
-            max_seq_length:int=512,
+            max_seq_len:int=512,
             do_lower_case:bool=False,
             warmup_proportion:float=0.1,
             grad_acc_steps:int=1,
@@ -65,21 +65,21 @@ def run_ner(lang:str='eng',
     print(f'Lang: {lang}\nModel: {bert_model}')
 
     train_dl = DataLoader(
-        dataset=NerDataset(trainset,bert_model, ds_size=ds_size),
+        dataset=NerDataset(trainset,bert_model,max_seq_len=max_seq_len, ds_size=ds_size),
         batch_size=batch_size,
         shuffle=True,
         collate_fn=pad
     )
 
     dev_dl = DataLoader(
-        dataset=NerDataset(devset, bert_model, ds_size=ds_size),
+        dataset=NerDataset(devset, bert_model,max_seq_len=max_seq_len, ds_size=ds_size),
         batch_size=batch_size,
         shuffle=False,
         collate_fn=pad
     )
 
     test_dl = DataLoader(
-        dataset=NerDataset(testset, bert_model, ds_size=ds_size),
+        dataset=NerDataset(testset, bert_model,max_seq_len=max_seq_len, ds_size=ds_size),
         batch_size=batch_size,
         shuffle=False,
         collate_fn=pad
