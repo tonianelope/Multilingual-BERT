@@ -13,9 +13,9 @@ from fastai.metrics import fbeta
 from fastai.train import to_fp16
 from learner import (BertForNER, OneHotCallBack, conll_f1, create_fp16_cb,
                      ner_loss_func, write_eval)
-from ner_data import NerDataset, pad
+from ner_data import VOCAB, NerDataset, idx2label, pad
 from optimizer import BertAdam
-from pytorch_pretrained_bert import BertModel
+from pytorch_pretrained_bert import BertForTokenClassification
 from torch.utils.data import DataLoader
 
 logging.basicConfig(filename='logs/logger.log',
@@ -93,7 +93,8 @@ def run_ner(lang:str='eng',
         path = Path(data_bunch_path)
     )
 
-    model = BertForNER(bert_model)
+    model = BertForTokenClassification.from_pretrained(bert_model, num_labels=len(VOCAB))
+    #model = ertForNER(bert_model)
     model = torch.nn.DataParallel(model)
 
     optim = BertAdam
@@ -121,7 +122,7 @@ def run_ner(lang:str='eng',
                     loss_func=loss_fun,
                     metrics=[conll_f1],
                     true_wd=False,
-#                    callback_fns=fp16_cb_fns
+                    callback_fns=fp16_cb_fns
                     )
 
     if fp16: learn.to_fp16(loss_scale=loss_scale, dynamic=dynamic)

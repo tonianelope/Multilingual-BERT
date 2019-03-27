@@ -12,7 +12,7 @@ from ner_data import VOCAB, idx2label
 from pytorch_pretrained_bert.modeling import BertModel, BertPreTrainedModel
 from pytorch_pretrained_bert.optimization import warmup_linear
 
-EPOCH =0 
+EPOCH =0
 
 def write_eval(msg, epoch=EPOCH):
     global EPOCH
@@ -56,29 +56,30 @@ class BertForNER(torch.nn.Module):
         return logits #, y_hat
 
 def ner_loss_func(out, *ys, cross_ent=False):
-    
-    write_log("===========\n\tLOSS")
-    #_ = ner_ys_masked(out, ys, log=True)
+    print('loss', out)
+    return out
+    # write_log("===========\n\tLOSS")
+    # #_ = ner_ys_masked(out, ys, log=True)
 
-    logits = out
-    one_hot_labels, label_ids, label_mask = ys
+    # logits = out
+    # one_hot_labels, label_ids, label_mask = ys
 
-    if cross_ent: # use torch cross entropy loss
-        logits = logits.view(-1, logits.shape[-1])
-        y = label_ids.view(-1)
+    # if cross_ent: # use torch cross entropy loss
+    #     logits = logits.view(-1, logits.shape[-1])
+    #     y = label_ids.view(-1)
 
-        fc =  torch.nn.CrossEntropyLoss(ignore_index=0)
-        # need mask???
-        loss =  fc(logits, y)
-        #print(f"loss: {loss}")
-        return loss
+    #     fc =  torch.nn.CrossEntropyLoss(ignore_index=0)
+    #     # need mask???
+    #     loss =  fc(logits, y)
+    #     #print(f"loss: {loss}")
+    #     return loss
 
 
-    else:
-        p = torch.nn.functional.softmax(logits, -1)
-        losses = -torch.log(torch.sum(one_hot_labels * p, -1))
-        losses = torch.masked_select(losses, label_mask) # TODO compare with predict mask
-        return torch.sum(losses)
+    # else:
+    #     p = torch.nn.functional.softmax(logits, -1)
+    #     losses = -torch.log(torch.sum(one_hot_labels * p, -1))
+    #     losses = torch.masked_select(losses, label_mask) # TODO compare with predict mask
+    #     return torch.sum(losses)
 
 def ner_ys_masked(output, target, log=True):
     _, label_ids, label_mask  = target
@@ -136,6 +137,7 @@ class OneHotCallBack(Callback):
         return add_metrics(last_metrics, self.val/self.count)
 
 def conll_f1(pred, *true, eps:float = 1e-9):
+#    print(pred)
     pred = pred.argmax(-1)
     _, label_ids, label_mask = true 
     mask = label_mask.view(-1)
@@ -179,6 +181,10 @@ class FP16_Callback(LearnerCallback):
         self.warmup_proportion = warmup_proportion
         self.fp16 = fp16
         self.global_step = global_step
+
+    def on_batch_begin(self, last_input, last_target, train, **kwards):
+        if not train:
+            return {'last_input': last_input[:2], 'last_target': last_target}
 
     def on_backward_begin(self, last_loss, **kwargs):
         '''

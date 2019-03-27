@@ -26,13 +26,13 @@ class NerDataset(Dataset):
     ds_size:      for debug peruses: truncates the dataset to ds_size examples
     """
     def __init__(self, filepath, bert_model, max_seq_len=512, ds_size=None):
+        self.max_seq_len = max_seq_len
+        self.tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=False)
+
         data = read_conll_data(filepath)
         if ds_size: data = data[:ds_size]
         skipped=0
         sents, labels = [],[]
-
-        self.max_seq_len = max_seq_len
-        self.tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=False)
 
         for tags, words in data:
             words = words.split()
@@ -83,13 +83,16 @@ class NerDataset(Dataset):
 
         assert_str = f"len(x)={len(x)}, len(y)={len(y)}, len(x_mask)={len(x_mask)}, len(y_mask)={len(y_mask)},"
         assert len(x)==len(y)==len(x_mask)==len(y_mask), assert_str
-        print(" ".join(text))
-        print(" ".join(labels))
-        print(" ".join(self.tokenizer.convert_ids_to_tokens(x)))
-        #print(y)
+        # print(" ".join(text))
+        # print(" ".join(labels))
+        # print(" ".join(self.tokenizer.convert_ids_to_tokens(x)))
+        # #print(y)
 
-        return ( (x, segment_ids, x_mask )  ,
-                 (one_hot_labels, y, y_mask) )
+        xb = (x, segment_ids, x_mask, y)
+        yb = (one_hot_labels, y, y_mask)
+
+        return xb, yb
+
 
     def get_bert_tl(self, index):
         "Convert a list of tokens and their corresponding labels"
@@ -143,7 +146,7 @@ def pad(batch, bertmax=512):
         label_mask.append( pad_fun(y[2]))
         one_hot_labels.append(np.eye(len(label2idx), dtype=np.float32)[label_id])
 
-    return ( ( t(input_ids), t(segment_ids), t(input_mask))  ,
+    return ( ( t(input_ids), t(segment_ids), t(input_mask), t(label_ids))  ,
              ( t(one_hot_labels), t(label_ids), t(label_mask).byte()) )
 
 # TODO compare difference between broken up tokens (e.g. predict and not predict)
