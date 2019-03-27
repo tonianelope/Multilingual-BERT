@@ -95,7 +95,7 @@ def run_ner(lang:str='eng',
 
     model = BertForTokenClassification.from_pretrained(bert_model, num_labels=len(VOCAB))
     #model = ertForNER(bert_model)
-    model = torch.nn.DataParallel(model)
+    #model = torch.nn.DataParallel(model)
 
     optim = BertAdam
     #optim = torch.optim.Adam #(model.parameters(), lr=lr)

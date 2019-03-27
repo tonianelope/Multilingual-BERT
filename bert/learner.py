@@ -29,7 +29,8 @@ def write_eval_lables(pred, true):
 
 def write_log(msg):
     with open('logs/out.log', 'a') as f:
-        f.write(msg+'\n')
+        f.write(msg)
+        f.write('\n')
 
 
 class BertForNER(torch.nn.Module):
@@ -57,19 +58,27 @@ class BertForNER(torch.nn.Module):
 
 def ner_loss_func(out, *ys, cross_ent=False):
     if out.shape<=torch.Size([1]):
-        loss = torch.tensor(out.item())
+        #print(out)
+        loss = out 
     else:
-        print(out.shape)
-        loss_fct = torch.nn.CrossEntropyLoss()
+        #print(out.shape)
+        loss_fct = torch.nn.CrossEntropyLoss(ignore_index=0)
         _, labels, attention_mask = ys
+        #print(labels.shape, attention_mask.shape)
         # Only keep active parts of the loss
         if attention_mask is not None:
+            #out = out.argmax(-1) 
+         #   print(out.shape)
             active_loss = attention_mask.view(-1) == 1
+          #  print('m', active_loss.shape, active_loss)
             active_logits = out.view(-1, len(VOCAB))[active_loss]
             active_labels = labels.view(-1)[active_loss]
+          #  print('p',active_logits.shape, active_logits.argmax(-1)
+          #  print('t',active_labels.shape, active_labels)
             loss = loss_fct(active_logits, active_labels)
         else:
             loss = loss_fct(logits.view(-1, len(VOCAB)), labels.view(-1))
+    #print(loss)
     return loss
     # write_log("===========\n\tLOSS")
     # #_ = ner_ys_masked(out, ys, log=True)
@@ -106,7 +115,6 @@ def ner_ys_masked(output, target, log=True):
           write_log(f'T: {t}')
           write_log(f'P: {o}')
         out_masked.extend(o.tolist())
-        target_masked.extend(t.tolist())
     return torch.tensor(out_masked), torch.tensor(target_masked)
 
 class OneHotCallBack(Callback):
@@ -121,7 +129,7 @@ class OneHotCallBack(Callback):
 
     def on_epoch_begin(self, **kwargs):
         "Set the inner value to 0."
-        write_log(f"""====================\n\t E {kwargs['epoch']}\n====================""")
+        write_log(f"E {kwargs['epoch']}")
         self.val, self.count = 0.,0
 
     def on_batch_end(self, last_output, last_target, **kwargs):
@@ -150,7 +158,6 @@ class OneHotCallBack(Callback):
         return add_metrics(last_metrics, self.val/self.count)
 
 def conll_f1(pred, *true, eps:float = 1e-9):
-#    print(pred)
     pred = pred.argmax(-1)
     _, label_ids, label_mask = true 
     mask = label_mask.view(-1)
@@ -162,8 +169,8 @@ def conll_f1(pred, *true, eps:float = 1e-9):
     logging.info('EVAL')
     logging.info(y_pred)
     logging.info(y_true)
-    #print(y_pred)
-    #print(y_true)
+    print(y_pred)
+    print(y_true)
     all_pos = len(y_pred[y_pred>1])
     actual_pos = len(y_true[y_true>1])
     correct_pos =(np.logical_and(y_true==y_pred, y_true>1)).sum().item()
@@ -172,7 +179,7 @@ def conll_f1(pred, *true, eps:float = 1e-9):
     rec = correct_pos / (actual_pos + eps)
     f1 = (2*prec*rec)/(prec+rec+eps)
     logging.info(f'f1: {f1}')
-    write_log(f'===============\nscores: {f1}')
+    write_log(f'f1: {f1}')
     #print('f1 ',f1) 
     return torch.Tensor([f1])
 
@@ -217,3 +224,4 @@ class FP16_Callback(LearnerCallback):
                 param_group['lr'] = lr_this_step
             global_step += 1
         return {'last_loss': loss, 'skip_bwd': self.fp16}
+import logging
