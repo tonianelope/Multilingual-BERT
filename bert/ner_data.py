@@ -25,24 +25,27 @@ class NerDataset(Dataset):
     max_seq_len:  max length for examples, shorter ones are padded longer discarded
     ds_size:      for debug peruses: truncates the dataset to ds_size examples
     """
-    def __init__(self, filepath, tokenizer, max_seq_len=512, ds_size=None):
+    def __init__(self, filepath, bert_model, max_seq_len=512, ds_size=None):
         data = read_conll_data(filepath)
         if ds_size: data = data[:ds_size]
         skipped=0
         sents, labels = [],[]
+
+        self.max_seq_len = max_seq_len
+        self.tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=False)
+
         for tags, words in data:
             words = words.split()
             tags = tags.split()
-            tokens = [t for w in words for t in tokenizer.tokenize(w)] 
-            if (len(tokens)+2) > 512:
+            tokens = [t for w in words for t in self.tokenizer.tokenize(w)] 
+            if (len(tokens)+2) > max_seq_len:
                 skipped +=1
                 continue
 
             sents.append(["[CLS]"]+words+["[SEP]"])
             labels.append([PAD]+tags+[PAD])
+
         self.labels, self.sents = labels, sents
-        self.tokenizer = tokenizer
-        self.max_seq_len = max_seq_len
         print('Skiped examples:',skipped)
 
     def __len__(self):
@@ -80,9 +83,9 @@ class NerDataset(Dataset):
 
         assert_str = f"len(x)={len(x)}, len(y)={len(y)}, len(x_mask)={len(x_mask)}, len(y_mask)={len(y_mask)},"
         assert len(x)==len(y)==len(x_mask)==len(y_mask), assert_str
-        #print(" ".join(text))
-        #print(" ".join(labels))
-        #print(" ".join(self.tokenizer.convert_ids_to_tokens(x)))
+        print(" ".join(text))
+        print(" ".join(labels))
+        print(" ".join(self.tokenizer.convert_ids_to_tokens(x)))
         #print(y)
 
         return ( (x, segment_ids, x_mask )  ,

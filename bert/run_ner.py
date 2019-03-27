@@ -16,7 +16,6 @@ from learner import (BertForNER, OneHotCallBack, conll_f1, create_fp16_cb,
 from ner_data import NerDataset, pad
 from optimizer import BertAdam
 from pytorch_pretrained_bert import BertModel
-from pytorch_pretrained_bert.tokenization import BertTokenizer
 from torch.utils.data import DataLoader
 
 logging.basicConfig(filename='logs/logger.log',
@@ -64,24 +63,23 @@ def run_ner(lang:str='eng',
 
     bert_model = 'bert-base-cased' if lang=='eng' else 'bert-base-multilingual-cased'
     print(f'Lang: {lang}\nModel: {bert_model}')
-    tok = BertTokenizer.from_pretrained(bert_model, do_lower_case=False)
 
     train_dl = DataLoader(
-        dataset=NerDataset(trainset,tokenizer=tok, ds_size=ds_size),
+        dataset=NerDataset(trainset,bert_model, ds_size=ds_size),
         batch_size=batch_size,
         shuffle=True,
         collate_fn=pad
     )
 
     dev_dl = DataLoader(
-        dataset=NerDataset(devset, tokenizer=tok, ds_size=ds_size),
+        dataset=NerDataset(devset, bert_model, ds_size=ds_size),
         batch_size=batch_size,
         shuffle=False,
         collate_fn=pad
     )
 
     test_dl = DataLoader(
-        dataset=NerDataset(testset, tokenizer=tok, ds_size=ds_size),
+        dataset=NerDataset(testset, bert_model, ds_size=ds_size),
         batch_size=batch_size,
         shuffle=False,
         collate_fn=pad
@@ -97,7 +95,6 @@ def run_ner(lang:str='eng',
 
     model = BertForNER(bert_model)
     model = torch.nn.DataParallel(model)
-
 
     optim = BertAdam
     #optim = torch.optim.Adam #(model.parameters(), lr=lr)
