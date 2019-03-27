@@ -17,8 +17,6 @@ TRAIN = 'train'
 DEV = 'dev'
 TEST = 'test'
 
-TOKENIZER = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
-
 class NerDataset(Dataset):
     """
     creates a conll Dataset
@@ -27,7 +25,7 @@ class NerDataset(Dataset):
     max_seq_len:  max length for examples, shorter ones are padded longer discarded
     ds_size:      for debug peruses: truncates the dataset to ds_size examples
     """
-    def __init__(self, filepath, tokenizer=TOKENIZER, max_seq_len=512, ds_size=None):
+    def __init__(self, filepath, tokenizer, max_seq_len=512, ds_size=None):
         data = read_conll_data(filepath)
         if ds_size: data = data[:ds_size]
         skipped=0
@@ -82,8 +80,9 @@ class NerDataset(Dataset):
 
         assert_str = f"len(x)={len(x)}, len(y)={len(y)}, len(x_mask)={len(x_mask)}, len(y_mask)={len(y_mask)},"
         assert len(x)==len(y)==len(x_mask)==len(y_mask), assert_str
-        #print(" ".join(lst_text))
-        #print(" ".join(lst_labels))
+        #print(" ".join(text))
+        #print(" ".join(labels))
+        #print(" ".join(self.tokenizer.convert_ids_to_tokens(x)))
         #print(y)
 
         return ( (x, segment_ids, x_mask )  ,

@@ -38,15 +38,15 @@ datasets:
 
 dataset-eng:
 	mkdir -p data/conll-2003/eng
-	wget --show-progress $(TRAIN) && mv train.txt data/conll-2003/eng
-	wget --show-progress $(VALID) && mv dev.txt data/conll-2003/eng
-	wget --show-progress $(TEST) && mv test.txt data/conll-2003/eng
+	wget --progress=bar $(TRAIN) && mv train.txt data/conll-2003/eng
+	wget --progress=bar $(VALID) && mv dev.txt data/conll-2003/eng
+	wget --progress=bar $(TEST) && mv test.txt data/conll-2003/eng
 
 dataset-deu:
 	mkdir -p data/conll-2003/deu
-	wget --show-progress $(D_TRAIN) && mv deu.train train.txt && mv train.txt data/conll-2003/deu
-	wget --show-progress $(D_VALID) && mv deu.testa dev.txt && mv dev.txt data/conll-2003/deu
-	wget --show-progress $(D_TEST) && mv deu.testb test.txt && mv test.txt data/conll-2003/deu
+	wget --progress=bar $(D_TRAIN) && mv deu.train train.txt && mv train.txt data/conll-2003/deu
+	wget --progress=bar $(D_VALID) && mv deu.testa dev.txt && mv dev.txt data/conll-2003/deu
+	wget --progress=bar $(D_TEST) && mv deu.testb test.txt && mv test.txt data/conll-2003/deu
 
 model:
 	wget https://s3.amazonaws.com/models.huggingface.co/bert/$(BERT).tar.gz

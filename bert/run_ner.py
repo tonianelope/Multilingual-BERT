@@ -60,24 +60,28 @@ def run_ner(lang:str='eng',
 
     trainset += lang + '/train.txt'
     devset += lang + '/dev.txt'
-    testset += lang + '/test.txt'
+    testset += lang + '/test.txt' 
+
+    bert_model = 'bert-base-cased' if lang=='eng' else 'bert-base-multilingual-cased'
+    print(f'Lang: {lang}\nModel: {bert_model}')
+    tok = BertTokenizer.from_pretrained(bert_model, do_lower_case=False)
 
     train_dl = DataLoader(
-        dataset=NerDataset(trainset, ds_size=ds_size),
+        dataset=NerDataset(trainset,tokenizer=tok, ds_size=ds_size),
         batch_size=batch_size,
-        shuffle=False,
+        shuffle=True,
         collate_fn=pad
     )
 
     dev_dl = DataLoader(
-        dataset=NerDataset(devset, ds_size=ds_size),
+        dataset=NerDataset(devset, tokenizer=tok, ds_size=ds_size),
         batch_size=batch_size,
         shuffle=False,
         collate_fn=pad
     )
 
     test_dl = DataLoader(
-        dataset=NerDataset(testset, ds_size=ds_size),
+        dataset=NerDataset(testset, tokenizer=tok, ds_size=ds_size),
         batch_size=batch_size,
         shuffle=False,
         collate_fn=pad
@@ -91,7 +95,7 @@ def run_ner(lang:str='eng',
         path = Path(data_bunch_path)
     )
 
-    model = BertForNER(lang)
+    model = BertForNER(bert_model)
     model = torch.nn.DataParallel(model)
 
 

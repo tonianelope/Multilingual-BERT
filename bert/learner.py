@@ -8,7 +8,7 @@ from fastai.callback import Callback
 from fastai.core import is_listy
 from fastai.metrics import fbeta
 from fastai.torch_core import add_metrics, num_distrib
-from ner_data import TOKENIZER, VOCAB, idx2label
+from ner_data import VOCAB, idx2label
 from pytorch_pretrained_bert.modeling import BertModel, BertPreTrainedModel
 from pytorch_pretrained_bert.optimization import warmup_linear
 
@@ -27,24 +27,6 @@ def write_eval_lables(pred, true):
         write_eval(f"{t} {p} {t==p}")
     write_eval("\n")
 
-def write_eval_text(last_input, pred, true, epoch):
-    last_input = last_input[0]
-    for text, label, pred in zip(last_input, true, pred):
-        text = TOKENIZER.convert_ids_to_tokens(text.tolist())
-        org_text = []
-        tok = ''
-        for i in range(1, len(text)):
-            if not text[i].startswith('##'):
-                org_text.append(tok.replace('##', ''))
-                tok = ''
-            tok += text[i]
-
-        for w, t, p in zip(org_text[1:-1], label, pred):
-            t = idx2label[t.item()]
-            p = idx2label[p.item()]
-            write_eval(f"{w} {t} {p} {t==p}" ,epoch)
-        write_eval("\n", epoch)
-
 def write_log(msg):
     with open('logs/out.log', 'a') as f:
         f.write(msg+'\n')
@@ -52,12 +34,10 @@ def write_log(msg):
 
 class BertForNER(torch.nn.Module):
 
-    def __init__(self, lang):
+    def __init__(self, bert_model):
         super().__init__()
 
-        bert_model = 'bert-base-cased' if lang=='eng' else 'bert-base-multilingual-cased'
         self.bert = BertModel.from_pretrained(bert_model)
-
         self.num_labels = len(VOCAB)
         self.fc = torch.nn.Linear(768, self.num_labels)
 
@@ -133,7 +113,6 @@ class OneHotCallBack(Callback):
     def on_batch_end(self, last_output, last_target, **kwargs):
         "Update metric computation with `last_output` and `last_target`."
         out_masked, target_masked = ner_ys_masked(last_output, last_target )
-        write_eval_text(kwargs['last_input'], out_masked, target_masked, self.epoch)
 
         #print(f"step: loss: {kwargs['last_loss'].item()}")
         logging.info(f'masked target: {target_masked}')
