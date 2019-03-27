@@ -133,7 +133,6 @@ def run_ner(lang:str='eng',
     # learn.recorder.plot(skip_end=15)
     for epoch in range(epochs):
         learn.fit(1, lr)
-        print(torch.cuda.current_device())
         m_path = learn.save(f"epoch_{epoch}_model", return_path=True)
         print(f'Saved model to {m_path}')
         write_eval(f'EPOCH{epoch}',epoch=epoch)
