@@ -169,8 +169,8 @@ def conll_f1(pred, *true, eps:float = 1e-9):
     logging.info('EVAL')
     logging.info(y_pred)
     logging.info(y_true)
-    print(y_pred)
-    print(y_true)
+   # print(y_pred)
+   # print(y_true)
     all_pos = len(y_pred[y_pred>1])
     actual_pos = len(y_true[y_true>1])
     correct_pos =(np.logical_and(y_true==y_pred, y_true>1)).sum().item()
@@ -203,8 +203,8 @@ class FP16_Callback(LearnerCallback):
         self.global_step = global_step
 
     def on_batch_begin(self, last_input, last_target, train, **kwards):
-        if not train:
-            return {'last_input': last_input[:2], 'last_target': last_target}
+#        if not train:
+         return {'last_input': last_input[:2], 'last_target': last_target}
 
     def on_backward_begin(self, last_loss, **kwargs):
         '''

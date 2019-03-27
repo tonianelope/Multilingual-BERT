@@ -135,8 +135,6 @@ def run_ner(lang:str='eng',
         print(f'Saved model to {m_path}')
         write_eval(f'EPOCH{epoch}',epoch=epoch)
 
-    m_path = learn.save("ner_trained_model", return_path=True)
-    print(f'Saved model to {m_path}')
 
 if __name__ == '__main__':
     fire.Fire(run_ner)

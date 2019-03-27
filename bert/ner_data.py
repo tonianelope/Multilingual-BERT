@@ -56,7 +56,7 @@ class NerDataset(Dataset):
 
         # We give credits only to the first piece.
         x, y = [], [] # list of ids
-        is_heads = [] # list. 1: the token is the first piece of a word (see paper and wordpiece tokenization)
+        is_heads, is_labels = [], [] # list. 1: the token is the first piece of a word (see paper and wordpiece tokenization)
         for w, t in zip(text, labels):
             tokens = self.tokenizer.tokenize(w) if w not in ("[CLS]", "[SEP]") else [w]
             xx = self.tokenizer.convert_tokens_to_ids(tokens)
@@ -65,22 +65,25 @@ class NerDataset(Dataset):
 
             t = [t] + [PAD] * (len(tokens) - 1)  # <PAD>: no decision
             yy = [label2idx[each] for each in t]  # (T,)
+            is_label = [1] if yy[0]>1 else [0]
+            is_label += [0] * (len(tokens)-1)
 
             if self.max_seq_len - 1 < len(x) + len(xx):
                 print('Too long example')
                 return self.__getitem__(index+1)
 
             x.extend(xx)
-            is_heads.extend(is_head)
             y.extend(yy)
+            is_heads.extend(is_head)
+            is_labels.extend(is_label)
 
         one_hot_labels = np.eye(len(label2idx), dtype=np.float32)[y]
 
         seqlen = len(y)
         segment_ids = [0] * seqlen
         x_mask = is_heads
-        y_mask = [0] + is_heads[1:-1] + [0]
-
+       # y_mask = [0] + is_heads[1:-1] + [0]
+        y_mask =is_labels
         assert_str = f"len(x)={len(x)}, len(y)={len(y)}, len(x_mask)={len(x_mask)}, len(y_mask)={len(y_mask)},"
         assert len(x)==len(y)==len(x_mask)==len(y_mask), assert_str
         # print(" ".join(text))
