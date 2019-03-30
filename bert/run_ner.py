@@ -104,7 +104,7 @@ def run_ner(lang:str='eng',
     model = BertForTokenClassification.from_pretrained(bert_model, num_labels=len(VOCAB))
     #model = BertForNER(bert_model)
     #TODO check for gpus and distribute accordingly
-    #model = torch.nn.DataParallel(model)
+    model = torch.nn.DataParallel(model)
 
     optim = BertAdam
 

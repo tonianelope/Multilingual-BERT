@@ -13,8 +13,11 @@ help:
 
 basic-bert:
 	$(EXEC) --batch-size=$(BS) --epochs=4 --lr=5e-5 $(W)
+	make mv-logs DIR='$(BS)$(W)-logs'
 	$(EXEC) --batch-size=$(BS) --epochs=4 --lr=3e-5 $(W)
+	make mv-logs DIR='$(BS)$(W)-logs'
 	$(EXEC) --batch-size=$(BS) --epochs=4 --lr=2e-5 $(W)
+	make mv-logs DIR='$(BS)$(W)-logs'
 
 test1:
 	$(EXEC) --ds-size=1 $(W)

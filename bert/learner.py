@@ -144,14 +144,14 @@ class FP16_Callback(LearnerCallback):
         '''
         loss = last_loss
         if self.gradient_accumulation_steps > 1:
-            loss /= gradient_accumulation_steps
+            loss /= self.gradient_accumulation_steps
 
         if self.fp16:
             learn.opt.backwards(loss)
             # modify learning rate with special BERT warm up
 
             lr_this_step = learn.opt.get_lr() * warmup_linear(
-               self.global_step/self.train_opt_steps, warmup_proportion)
+               self.global_step/self.train_opt_steps,self.warmup_proportion)
             for param_group in learn.opt.param_groups:
                 param_group['lr'] = lr_this_step
             global_step += 1

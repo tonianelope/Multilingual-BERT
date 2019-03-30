@@ -39,6 +39,7 @@ class NerDataset(Dataset):
             words = words.split()
             tags = tags.split()
             tokens = [t for w in words for t in self.tokenizer.tokenize(w)] 
+            # account for [cls] [sep] token
             if (len(tokens)+2) > max_seq_len:
                 skipped +=1
                 continue
@@ -71,7 +72,7 @@ class NerDataset(Dataset):
             is_label = [1] if yy[0]>1 else [0]
             is_label += [0] * (len(tokens)-1)
 
-            if self.max_seq_len - 1 < len(x) + len(xx):
+            if self.max_seq_len < len(x) + len(xx):
                 print('Too long example')
                 return self.__getitem__(index+1)
 
