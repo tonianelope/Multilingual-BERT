@@ -51,6 +51,7 @@ def run_ner(lang:str='eng',
             ds_size:int=None,
             data_bunch_path:str='data/conll-2003/db',
             freez:bool=False,
+            tuned_learner:str=None,
 ):
 
     name = "_".join(map(str,[task, lang, batch_size, lr, max_seq_len, fp16]))
@@ -135,6 +136,10 @@ def run_ner(lang:str='eng',
                     callback_fns=fp16_cb_fns,
                     path='learn',
                     )
+    # load fine-tuned learner
+    if tuned_learner:
+        print('Loading pretrained learner: ', tuned_learner)
+        learn.load(tuned_learner)
 
     if fp16: learn.to_fp16(loss_scale=loss_scale, dynamic=dynamic)
 
