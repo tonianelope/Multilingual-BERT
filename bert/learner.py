@@ -32,90 +32,24 @@ def write_log(msg):
         f.write(msg)
         f.write('\n')
 
-
-class BertForNER(torch.nn.Module):
-
-    def __init__(self, bert_model):
-        super().__init__()
-
-        self.bert = BertModel.from_pretrained(bert_model)
-        self.num_labels = len(VOCAB)
-        self.fc = torch.nn.Linear(768, self.num_labels)
-
-        self.dropout = torch.nn.Dropout(0.2)
-
-    def forward(self, input_ids, segment_ids, input_mask ):
-        self.bert.train()
-        enc_layer, _ = self.bert(input_ids, segment_ids, input_mask)
-        bert_layer = enc_layer[-1]
-
-        # if one_hot_labels is not None:
-        #     bert_layer = self.dropout(bert_layer) # TODO comapre to without dropout
-        logits = self.fc(bert_layer)
-        y_hat = logits.argmax(-1)
-        #y_hat = torch.tensor(np.eye(self.num_labels, dtype=np.float32)[y_hat])
-        return logits #, y_hat
-
 def ner_loss_func(out, *ys, cross_ent=False):
     if out.shape<=torch.Size([1]):
-        #print(out)
-        loss = out 
+        loss = out
     else:
-        #print(out.shape)
         loss_fct = torch.nn.CrossEntropyLoss(ignore_index=0)
         _, labels, attention_mask = ys
-        #print(labels.shape, attention_mask.shape)
         # Only keep active parts of the loss
         if attention_mask is not None:
-            #out = out.argmax(-1) 
-         #   print(out.shape)
             active_loss = attention_mask.view(-1) == 1
-          #  print('m', active_loss.shape, active_loss)
             active_logits = out.view(-1, len(VOCAB))[active_loss]
             active_labels = labels.view(-1)[active_loss]
-          #  print('p',active_logits.shape, active_logits.argmax(-1)
-          #  print('t',active_labels.shape, active_labels)
-            loss = loss_fct(active_logits, active_labels)
+            try:
+                loss = loss_fct(active_logits, active_labels)
+            except Exception as e:
+                loss = loss_fct(out.view(-1, len(VOCAB)), labels.view(-1))
         else:
-            loss = loss_fct(logits.view(-1, len(VOCAB)), labels.view(-1))
-    #print(loss)
+            loss = loss_fct(out.view(-1, len(VOCAB)), labels.view(-1))
     return loss
-    # write_log("===========\n\tLOSS")
-    # #_ = ner_ys_masked(out, ys, log=True)
-
-    # logits = out
-    # one_hot_labels, label_ids, label_mask = ys
-
-    # if cross_ent: # use torch cross entropy loss
-    #     logits = logits.view(-1, logits.shape[-1])
-    #     y = label_ids.view(-1)
-
-    #     fc =  torch.nn.CrossEntropyLoss(ignore_index=0)
-    #     # need mask???
-    #     loss =  fc(logits, y)
-    #     #print(f"loss: {loss}")
-    #     return loss
-
-
-    # else:
-    #     p = torch.nn.functional.softmax(logits, -1)
-    #     losses = -torch.log(torch.sum(one_hot_labels * p, -1))
-    #     losses = torch.masked_select(losses, label_mask) # TODO compare with predict mask
-    #     return torch.sum(losses)
-
-def ner_ys_masked(output, target, log=True):
-    _, label_ids, label_mask  = target
-
-    out = output.argmax(-1)
-    out_masked, target_masked = [], []
-    for i in range(len(out)):
-        o = torch.masked_select(out[i], label_mask[i])
-        t = torch.masked_select(label_ids[i], label_mask[i])
-        if log:
-          write_log(f'T: {t}')
-          write_log(f'P: {o}')
-        out_masked.extend(o.tolist())
-    return torch.tensor(out_masked), torch.tensor(target_masked)
 
 class OneHotCallBack(Callback):
 
@@ -134,7 +68,6 @@ class OneHotCallBack(Callback):
 
     def on_batch_end(self, last_output, last_target, **kwargs):
         "Update metric computation with `last_output` and `last_target`."
-        out_masked, target_masked = ner_ys_masked(last_output, last_target )
 
         #print(f"step: loss: {kwargs['last_loss'].item()}")
         logging.info(f'masked target: {target_masked}')
@@ -159,12 +92,12 @@ class OneHotCallBack(Callback):
 
 def conll_f1(pred, *true, eps:float = 1e-9):
     pred = pred.argmax(-1)
-    _, label_ids, label_mask = true 
+    _, label_ids, label_mask = true
     mask = label_mask.view(-1)
     pred = pred.view(-1)
     labels = label_ids.view(-1)
-    y_pred = torch.masked_select(pred, mask) 
-    y_true = torch.masked_select(labels, mask) 
+    y_pred = torch.masked_select(pred, mask)
+    y_true = torch.masked_select(labels, mask)
     write_eval_lables(y_pred, y_true)
     logging.info('EVAL')
     logging.info(y_pred)
@@ -224,4 +157,3 @@ class FP16_Callback(LearnerCallback):
                 param_group['lr'] = lr_this_step
             global_step += 1
         return {'last_loss': loss, 'skip_bwd': self.fp16}
-import logging
