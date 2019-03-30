@@ -17,8 +17,6 @@ TRAIN = 'train'
 DEV = 'dev'
 TEST = 'test'
 
-TOKENIZER = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
-
 class NerDataset(Dataset):
     """
     creates a conll Dataset
@@ -27,12 +25,32 @@ class NerDataset(Dataset):
     max_seq_len:  max length for examples, shorter ones are padded longer discarded
     ds_size:      for debug peruses: truncates the dataset to ds_size examples
     """
-    def __init__(self, filepath, tokenizer=TOKENIZER, max_seq_len=512, ds_size=None):
-        data = read_conll_data(filepath)
-        if ds_size: data = data[:ds_size]
-        self.labels, self.sents = zip(*data)
-        self.tokenizer = tokenizer
+    def __init__(self, filepath, bert_model, max_seq_len=512, ds_size=None):
         self.max_seq_len = max_seq_len
+        self.tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=False)
+
+        data = read_conll_data(filepath)
+        org_size = len(data)
+        if ds_size: data = data[:ds_size]
+        skipped=0
+        sents, labels = [],[]
+
+        for tags, words in data:
+            words = words.split()
+            tags = tags.split()
+            tokens = [t for w in words for t in self.tokenizer.tokenize(w)] 
+            # account for [cls] [sep] token
+            if (len(tokens)+2) > max_seq_len:
+                skipped +=1
+                continue
+
+            sents.append(["[CLS]"]+words+["[SEP]"])
+            labels.append([PAD]+tags+[PAD])
+
+        self.labels, self.sents = labels, sents
+        print()
+        print(filepath)
+        print(f'Skiped examples: {(skipped/org_size)*100:.2}% => {skipped}/{org_size} ')
 
     def __len__(self):
         return len(self.sents)
@@ -40,14 +58,10 @@ class NerDataset(Dataset):
     def __getitem__(self, index):
         text, labels = self.sents[index], self.labels[index]
 
-        lst_text = ["[CLS]"] + str(text).split() + ["[SEP]"]
-        lst_labels = [PAD] + labels.split() + [PAD]
-
-
         # We give credits only to the first piece.
         x, y = [], [] # list of ids
-        is_heads = [] # list. 1: the token is the first piece of a word (see paper and wordpiece tokenization)
-        for w, t in zip(lst_text, lst_labels):
+        is_heads, is_labels = [], [] # list. 1: the token is the first piece of a word (see paper and wordpiece tokenization)
+        for w, t in zip(text, labels):
             tokens = self.tokenizer.tokenize(w) if w not in ("[CLS]", "[SEP]") else [w]
             xx = self.tokenizer.convert_tokens_to_ids(tokens)
 
@@ -55,26 +69,37 @@ class NerDataset(Dataset):
 
             t = [t] + [PAD] * (len(tokens) - 1)  # <PAD>: no decision
             yy = [label2idx[each] for each in t]  # (T,)
+            is_label = [1] if yy[0]>1 else [0]
+            is_label += [0] * (len(tokens)-1)
 
-            if self.max_seq_len - 1 < len(x) + len(xx):
-                break
+            if self.max_seq_len < len(x) + len(xx):
+                print('Too long example')
+                return self.__getitem__(index+1)
 
             x.extend(xx)
-            is_heads.extend(is_head)
             y.extend(yy)
+            is_heads.extend(is_head)
+            is_labels.extend(is_label)
 
         one_hot_labels = np.eye(len(label2idx), dtype=np.float32)[y]
 
         seqlen = len(y)
         segment_ids = [0] * seqlen
         x_mask = is_heads
-        y_mask = [0] + is_heads[1:-1] + [0]
-
+       # y_mask = [0] + is_heads[1:-1] + [0]
+        y_mask =is_labels
         assert_str = f"len(x)={len(x)}, len(y)={len(y)}, len(x_mask)={len(x_mask)}, len(y_mask)={len(y_mask)},"
         assert len(x)==len(y)==len(x_mask)==len(y_mask), assert_str
+        # print(" ".join(text))
+        # print(" ".join(labels))
+        # print(" ".join(self.tokenizer.convert_ids_to_tokens(x)))
+        # #print(y)
 
-        return ( (x, segment_ids, x_mask)  ,
-                 (one_hot_labels, y, y_mask) )
+        xb = (x, segment_ids, x_mask, y)
+        yb = (one_hot_labels, y, y_mask)
+
+        return xb, yb
+
 
     def get_bert_tl(self, index):
         "Convert a list of tokens and their corresponding labels"
@@ -128,7 +153,7 @@ def pad(batch, bertmax=512):
         label_mask.append( pad_fun(y[2]))
         one_hot_labels.append(np.eye(len(label2idx), dtype=np.float32)[label_id])
 
-    return ( ( t(input_ids), t(segment_ids), t(input_mask))  ,
+    return ( ( t(input_ids), t(segment_ids), t(input_mask), t(label_ids))  ,
              ( t(one_hot_labels), t(label_ids), t(label_mask).byte()) )
 
 # TODO compare difference between broken up tokens (e.g. predict and not predict)
