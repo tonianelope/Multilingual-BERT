@@ -1,1 +1,11 @@
 /ulmfit/data/sst/models/fit_head.pth
+*logs*/
+*.ipynb
+*.tar.gz
+*__pycache__
+*data
+*.job
+*.csv
+/bert/installs
+/ulmfit/fastai-scripts/README.md
+/ulmfit/fastai-scripts/create_toks.py
