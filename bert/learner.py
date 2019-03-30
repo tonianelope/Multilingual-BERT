@@ -102,8 +102,7 @@ def conll_f1(pred, *true, eps:float = 1e-9):
     logging.info('EVAL')
     logging.info(y_pred)
     logging.info(y_true)
-   # print(y_pred)
-   # print(y_true)
+
     all_pos = len(y_pred[y_pred>1])
     actual_pos = len(y_true[y_true>1])
     correct_pos =(np.logical_and(y_true==y_pred, y_true>1)).sum().item()
@@ -113,7 +112,7 @@ def conll_f1(pred, *true, eps:float = 1e-9):
     f1 = (2*prec*rec)/(prec+rec+eps)
     logging.info(f'f1: {f1}')
     write_log(f'f1: {f1}')
-    #print('f1 ',f1) 
+
     return torch.Tensor([f1])
 
 def create_fp16_cb(learn, **kwargs):

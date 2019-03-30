@@ -11,6 +11,11 @@ EXEC=python run_ner.py
 help:
 	$(EXEC) --help
 
+basic-bert:
+	$(EXEC) --batch-size=$(BS) --epochs=4 --lr=5e-5 $(W)
+	$(EXEC) --batch-size=$(BS) --epochs=4 --lr=3e-5 $(W)
+	$(EXEC) --batch-size=$(BS) --epochs=4 --lr=2e-5 $(W)
+
 test1:
 	$(EXEC) --ds-size=1 $(W)
 
@@ -18,16 +23,13 @@ apex-test:
 	$(EXEC) --ds-size=1 --fp16 $(W)
 
 run:
-	$(EXEC) --batch-size=32 --epochs=4 --lr=5e-5 --cross-ent=True $(W)
+	$(EXEC) --batch-size=32 --epochs=4 --lr=5e-5 $(W)
 
 run-c:
-	$(EXEC) --batch-size=8 --epochs=3 --lr=5e-5 --cross-ent=True $(W)
+	$(EXEC) --batch-size=8 --epochs=3 --lr=5e-5 $(W)
 
 run-b:
-	$(EXEC) --batch-size=16 --epochs=3 --lr=5e-5 --cross-ent=True $(W)
-
-run-nc:
-	$(EXEC) --batch-size=32 --epochs=3 --lr=5e-5 --cross-ent=False $(W)
+	$(EXEC) --batch-size=16 --epochs=3 --lr=5e-5 $(W)
 
 apex-run:
 	$(EXEC) --batch_size=16 --epochs=1 --fp16 $(W)
@@ -52,12 +54,11 @@ model:
 	wget https://s3.amazonaws.com/models.huggingface.co/bert/$(BERT).tar.gz
 
 mv-logs:
-	mv *.log $(DIR)
+	mkdir -p $(DIR)
+	mv logs/* $(DIR)/
 
 clean-logs:
-	rm *.log
-	rm out.txt
-	rm eval_*
+	rm logs/*
 
 clean-models:
 	rm *.tar.gz
