@@ -49,7 +49,9 @@ def run_ner(lang:str='eng',
             fp16:bool=False,
             loss_scale:float=None,
             ds_size:int=None,
-            data_bunch_path:str='data/conll-2003/db'):
+            data_bunch_path:str='data/conll-2003/db',
+            freez:bool=False,
+):
 
     name = "_".join(map(str,[task, lang, batch_size, lr, max_seq_len, fp16]))
     init_logger(log_dir, name)
@@ -138,8 +140,24 @@ def run_ner(lang:str='eng',
 
     # learn.lr_find()
     # learn.recorder.plot(skip_end=15)
+
+    # learn.freeze() learn.freeze_to(-3) learn.freeze_to(-6) learn.freeze_to(-9) learn.unfreeze()
+
     for epoch in range(epochs):
-        learn.fit(1, lr)
+        if freez:
+            if epoch==0:
+                learn.freeze()
+            elif epoch==epochs-1:
+                learn.unfreeze()
+            else:
+                lays = learn.get_layer_groups()
+                lay = (lays//epochs-1) * epoch
+                print('freez top ', lay, ' off ', lays)
+                learn.freeze(-lay)
+            lrs = learn.lr_range(slice(start_lr, end_lr))
+            learn.fit_one_cylce(1, lrs, mom=(0.8, 0.7))
+        else:
+            learn.fit(1, lr)
         m_path = learn.save(f"{name}_{epoch}_model", return_path=True)
         write_eval(f'EPOCH{epoch}',epoch=epoch)
     print(f'Saved model to {m_path}')
