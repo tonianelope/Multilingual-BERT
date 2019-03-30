@@ -10,6 +10,7 @@ import torch
 from fastai.basic_data import DataBunch
 from fastai.basic_train import Learner
 from fastai.metrics import fbeta
+from fastai.torch_core import flatten_model
 from fastai.train import to_fp16
 from learner import (OneHotCallBack, conll_f1, create_fp16_cb, ner_loss_func,
                      write_eval)
@@ -31,6 +32,20 @@ def init_logger(log_dir, name):
                     level=logging.INFO
     )
 
+def bert_layer_list(model):
+    ms = torch.nn.ModuleList()
+
+    flm = flatten_model(model)
+    # embedding = [0:5] layer
+    ms.append(torch.nn.ModuleList(flm[0:5]))
+    # encoder (12 layers) = [5:16] [16:27] ... [126:136]
+    for i in range(5, 137, 11):
+        ms.append(torch.nn.ModuleList(flm[i: i+11]))
+    # pooling layer = [137:139]
+    ms.append(torch.nn.ModuleList(flm[-4:-2]))
+    # head = [-2:]
+    ms.append(torch.nn.ModuleList(flm[-2:]))
+    return ms
 
 def run_ner(lang:str='eng',
             log_dir:str='logs',
@@ -51,8 +66,11 @@ def run_ner(lang:str='eng',
             ds_size:int=None,
             data_bunch_path:str='data/conll-2003/db',
             freez:bool=False,
+            one_cycle:bool=False,
+            discr:bool=False,
             tuned_learner:str=None,
 ):
+
 
     name = "_".join(map(str,[task, lang, batch_size, lr, max_seq_len, fp16]))
     init_logger(log_dir, name)
@@ -74,6 +92,8 @@ def run_ner(lang:str='eng',
 
     bert_model = 'bert-base-cased' if lang=='eng' else 'bert-base-multilingual-cased'
     print(f'Lang: {lang}\nModel: {bert_model}\nRun: {name}')
+    model = BertForTokenClassification.from_pretrained(bert_model, num_labels=len(VOCAB))
+    model = torch.nn.DataParallel(model)
 
     train_dl = DataLoader(
         dataset=NerDataset(trainset,bert_model,max_seq_len=max_seq_len, ds_size=ds_size),
@@ -107,9 +127,9 @@ def run_ner(lang:str='eng',
     model = BertForTokenClassification.from_pretrained(bert_model, num_labels=len(VOCAB))
     #model = BertForNER(bert_model)
     #TODO check for gpus and distribute accordingly
-    model = torch.nn.DataParallel(model)
-
+    #model = torch.nn.DataParallel(model)
     optim = BertAdam
+    #print(model)
 
     train_opt_steps = int(len(train_dl.dataset) / batch_size / grad_acc_steps) * epochs
     f1 = partial(fbeta, beta=1, sigmoid=False)
@@ -134,6 +154,7 @@ def run_ner(lang:str='eng',
                     metrics=[conll_f1],
                     true_wd=False,
                     callback_fns=fp16_cb_fns,
+                    layer_groups=None if not freez else bert_layer_list(model),
                     path='learn',
                     )
     # load fine-tuned learner
@@ -146,23 +167,19 @@ def run_ner(lang:str='eng',
     # learn.lr_find()
     # learn.recorder.plot(skip_end=15)
 
-    # learn.freeze() learn.freeze_to(-3) learn.freeze_to(-6) learn.freeze_to(-9) learn.unfreeze()
-
+    lrs = lr if not discr else learn.lr_range(slice(start_lr, end_lr))
     for epoch in range(epochs):
         if freez:
-            if epoch==0:
-                learn.freeze()
-            elif epoch==epochs-1:
-                learn.unfreeze()
+            if epoch==0: learn.freeze()
+            elif epoch==epochs-1: learn.unfreeze()
             else:
-                lays = learn.get_layer_groups()
-                lay = (lays//epochs-1) * epoch
-                print('freez top ', lay, ' off ', lays)
-                learn.freeze(-lay)
-            lrs = learn.lr_range(slice(start_lr, end_lr))
+                lay = (15//(epochs-1)) * epoch * -1
+                print('freez top ', lay, ' off ', 15)
+                learn.freeze_to(lay)
+        if one_cycle:
             learn.fit_one_cylce(1, lrs, mom=(0.8, 0.7))
         else:
-            learn.fit(1, lr)
+            learn.fit(1, lrs)
         m_path = learn.save(f"{name}_{epoch}_model", return_path=True)
         write_eval(f'EPOCH{epoch}',epoch=epoch)
     print(f'Saved model to {m_path}')
