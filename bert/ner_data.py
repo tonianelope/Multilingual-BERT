@@ -30,6 +30,7 @@ class NerDataset(Dataset):
         self.tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=False)
 
         data = read_conll_data(filepath)
+        org_size = len(data)
         if ds_size: data = data[:ds_size]
         skipped=0
         sents, labels = [],[]
@@ -46,7 +47,9 @@ class NerDataset(Dataset):
             labels.append([PAD]+tags+[PAD])
 
         self.labels, self.sents = labels, sents
-        print('Skiped examples:',skipped)
+        print()
+        print(filepath)
+        print(f'Skiped examples: {(skipped/org_size)*100:.2}% => {skipped}/{org_size} ')
 
     def __len__(self):
         return len(self.sents)
