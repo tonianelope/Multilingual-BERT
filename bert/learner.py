@@ -63,7 +63,7 @@ class OneHotCallBack(Callback):
 
     def on_epoch_begin(self, **kwargs):
         "Set the inner value to 0."
-        write_log(f"E {kwargs['epoch']}")
+        #write_log(f"E {kwargs['epoch']}")
         self.val, self.count = 0.,0
 
     def on_batch_end(self, last_output, last_target, **kwargs):
@@ -76,7 +76,7 @@ class OneHotCallBack(Callback):
         if not is_listy(target_masked): target_masked=[target_masked]
         self.count += target_masked[0].size(0)
         val = self.func(out_masked, *target_masked)
-        write_eval(f'F1={val}', self.epoch)
+        #write_eval(f'F1={val}', self.epoch)
         self.i +=1
 
         if self.world:
@@ -98,7 +98,7 @@ def conll_f1(pred, *true, eps:float = 1e-9):
     labels = label_ids.view(-1)
     y_pred = torch.masked_select(pred, mask)
     y_true = torch.masked_select(labels, mask)
-    write_eval_lables(y_pred, y_true)
+    #write_eval_lables(y_pred, y_true)
     logging.info('EVAL')
     logging.info(y_pred)
     logging.info(y_true)
@@ -111,7 +111,7 @@ def conll_f1(pred, *true, eps:float = 1e-9):
     rec = correct_pos / (actual_pos + eps)
     f1 = (2*prec*rec)/(prec+rec+eps)
     logging.info(f'f1: {f1}')
-    write_log(f'f1: {f1}')
+    #write_log(f'f1: {f1}')
 
     return torch.Tensor([f1])
 

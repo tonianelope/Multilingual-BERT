@@ -20,11 +20,11 @@ from torch.utils.data import DataLoader
 
 NER = 'conll-2003'
 
-def init_logger(log_dir):
+def init_logger(log_dir, name):
     log_dir = Path(log_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    logging.basicConfig(filename=log_dir / 'logger.log',
+    logging.basicConfig(filename=log_dir / (name+'.log'),
                     filemode='w',
                     format='%(asctime)s, %(message)s',
                     datefmt='%H:%M%S',
@@ -52,7 +52,7 @@ def run_ner(lang:str='eng',
             data_bunch_path:str='data/conll-2003/db'):
 
     name = "_".join(map(str,[task, lang, batch_size, lr, max_seq_len, fp16]))
-    init_logger(name+"_"+log_dir)
+    init_logger(log_dir, name)
 
     random.seed(rand_seed)
     np.random.seed(rand_seed)
@@ -130,7 +130,8 @@ def run_ner(lang:str='eng',
                     loss_func=loss_fun,
                     metrics=[conll_f1],
                     true_wd=False,
-                    callback_fns=fp16_cb_fns
+                    callback_fns=fp16_cb_fns,
+                    path='learn',
                     )
 
     if fp16: learn.to_fp16(loss_scale=loss_scale, dynamic=dynamic)
