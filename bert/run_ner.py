@@ -47,7 +47,7 @@ def bert_layer_list(model):
     ms.append(torch.nn.ModuleList(flm[-2:]))
     return ms
 
-def do_train(learn, epochs, lr, name, freez, discr, one_cycle, save):
+def train(learn, epochs, lr, name, freez, discr, one_cycle, save):
     lrs = lr if not discr else learn.lr_range(slice(start_lr, end_lr))
     for epoch in range(epochs):
         if freez:
@@ -63,16 +63,6 @@ def do_train(learn, epochs, lr, name, freez, discr, one_cycle, save):
             learn.fit(1, lrs)
         if save: m_path = learn.save(f"{name}_{epoch}_model", return_path=True)
     if save: print(f'Saved model to {m_path}')
-
-def do_eval(learn, dataloader):
-    scores = []
-    for xb, yb in dataloader:
-        xb , yb = to_device(xb, learn.data.device), to_device(yb, learn.data.device)
-        pred = learn.model(*xb)
-        f1 = conll_f1(pred, *yb)
-        scores.append(f1)
-    print(scores)
-    print(np.array(scores).mean())
 
 def run_ner(lang:str='eng',
             log_dir:str='logs',
@@ -96,11 +86,11 @@ def run_ner(lang:str='eng',
             one_cycle:bool=False,
             discr:bool=False,
             tuned_learner:str=None,
-            train:str=True,
-            evalm:str=False,
-	    save:bool=False,
+            do_train:str=False,
+            do_eval:str=False,
+	        save:bool=False,
 ):
-    name = "_".join(map(str,[task, lang, batch_size, lr, max_seq_len,train, evalm]))
+    name = "_".join(map(str,[task, lang, batch_size, lr, max_seq_len,do_train, do_eval]))
     init_logger(log_dir, name)
 
     if rand_seed:
@@ -122,7 +112,7 @@ def run_ner(lang:str='eng',
     bert_model = 'bert-base-cased' if lang=='eng' else 'bert-base-multilingual-cased'
     print(f'Lang: {lang}\nModel: {bert_model}\nRun: {name}')
     model = BertForTokenClassification.from_pretrained(bert_model, num_labels=len(VOCAB), cache_dir='bertm')
-    
+
     if batch_size>16: model = torch.nn.DataParallel(model)
 
     train_dl = DataLoader(
@@ -192,12 +182,11 @@ def run_ner(lang:str='eng',
     # learn.lr_find()
     # learn.recorder.plot(skip_end=15)
 
-    if train:
-        do_train(learn, epochs, lr, name, freez, discr, one_cycle,save)
-    if evalm:
-        do_eval(learn, test_dl)
+    if do_train:
+        train(learn, epochs, lr, name, freez, discr, one_cycle,save)
+    if do_eval:
         res = learn.validate(test_dl, metrics=[conll_f1])
-        print(res)
+        print(f'Validation on test set:\nloss {res[0]} conll_f1: {res[1]}')
 
 if __name__ == '__main__':
     fire.Fire(run_ner)
