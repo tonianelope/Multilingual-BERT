@@ -86,7 +86,7 @@ def run_ner(lang:str='eng',
             do_lower_case:bool=False,
             warmup_proportion:float=0.1,
             grad_acc_steps:int=1,
-            rand_seed:int=42,
+            rand_seed:int=None,
             fp16:bool=False,
             loss_scale:float=None,
             ds_size:int=None,
@@ -103,9 +103,10 @@ def run_ner(lang:str='eng',
     name = "_".join(map(str,[task, lang, batch_size, lr, max_seq_len, fp16]))
     init_logger(log_dir, name)
 
-    random.seed(rand_seed)
-    np.random.seed(rand_seed)
-    torch.manual_seed(rand_seed)
+    if rand_seed:
+        random.seed(rand_seed)
+        np.random.seed(rand_seed)
+        torch.manual_seed(rand_seed)
 
     if grad_acc_steps < 1:
         raise ValueError(f"""Invalid grad_acc_steps parameter:
