@@ -47,7 +47,7 @@ def bert_layer_list(model):
     ms.append(torch.nn.ModuleList(flm[-2:]))
     return ms
 
-def do_train(learn, epochs, lr, name, freez, discr, one_cycle):
+def do_train(learn, epochs, lr, name, freez, discr, one_cycle, save):
     lrs = lr if not discr else learn.lr_range(slice(start_lr, end_lr))
     for epoch in range(epochs):
         if freez:
@@ -61,8 +61,9 @@ def do_train(learn, epochs, lr, name, freez, discr, one_cycle):
             learn.fit_one_cylce(1, lrs, mom=(0.8, 0.7))
         else:
             learn.fit(1, lrs)
-        m_path = learn.save(f"{name}_{epoch}_model", return_path=True)
-    print(f'Saved model to {m_path}')
+	
+	if save: m_path = learn.save(f"{name}_{epoch}_model", return_path=True)
+    if save: print(f'Saved model to {m_path}')
 
 def do_eval(learn, dataloader):
     scores = []
@@ -97,6 +98,7 @@ def run_ner(lang:str='eng',
             tuned_learner:str=None,
             train:str=True,
             evalm:str=False,
+	    save:bool=False,
 ):
 
 
@@ -153,12 +155,7 @@ def run_ner(lang:str='eng',
         path = Path(data_bunch_path)
     )
 
-    model = BertForTokenClassification.from_pretrained(bert_model, num_labels=len(VOCAB))
-    #model = BertForNER(bert_model)
-    #TODO check for gpus and distribute accordingly
-    #model = torch.nn.DataParallel(model)
     optim = BertAdam
-    #print(model)
 
     train_opt_steps = int(len(train_dl.dataset) / batch_size / grad_acc_steps) * epochs
     f1 = partial(fbeta, beta=1, sigmoid=False)
@@ -197,7 +194,7 @@ def run_ner(lang:str='eng',
     # learn.recorder.plot(skip_end=15)
 
     if train:
-        do_train(learn, epochs, lr, name, freez, discr, one_cycle)
+        do_train(learn, epochs, lr, name, freez, discr, one_cycle,save)
     if evalm:
         do_eval(learn, test_dl)
 
