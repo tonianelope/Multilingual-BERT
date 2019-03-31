@@ -61,8 +61,7 @@ def do_train(learn, epochs, lr, name, freez, discr, one_cycle, save):
             learn.fit_one_cylce(1, lrs, mom=(0.8, 0.7))
         else:
             learn.fit(1, lrs)
-	
-	if save: m_path = learn.save(f"{name}_{epoch}_model", return_path=True)
+        if save: m_path = learn.save(f"{name}_{epoch}_model", return_path=True)
     if save: print(f'Saved model to {m_path}')
 
 def do_eval(learn, dataloader):
@@ -123,8 +122,9 @@ def run_ner(lang:str='eng',
 
     bert_model = 'bert-base-cased' if lang=='eng' else 'bert-base-multilingual-cased'
     print(f'Lang: {lang}\nModel: {bert_model}\nRun: {name}')
-    model = BertForTokenClassification.from_pretrained(bert_model, num_labels=len(VOCAB))
-    model = torch.nn.DataParallel(model)
+    model = BertForTokenClassification.from_pretrained(bert_model, num_labels=len(VOCAB), cache_dir='bertm')
+    
+    if batch_size>16: model = torch.nn.DataParallel(model)
 
     train_dl = DataLoader(
         dataset=NerDataset(trainset,bert_model,max_seq_len=max_seq_len, ds_size=ds_size),
