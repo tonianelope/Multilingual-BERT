@@ -7,7 +7,7 @@ from fastai.basic_train import Learner, LearnerCallback
 from fastai.callback import Callback
 from fastai.core import is_listy
 from fastai.metrics import fbeta
-from fastai.torch_core import add_metrics, num_distrib
+from fastai.torch_core import add_metrics, num_distrib, to_device
 from ner_data import VOCAB, idx2label
 from pytorch_pretrained_bert.modeling import BertModel, BertPreTrainedModel
 from pytorch_pretrained_bert.optimization import warmup_linear
@@ -33,6 +33,7 @@ def write_log(msg):
         f.write('\n')
 
 def ner_loss_func(out, *ys, cross_ent=False):
+    ys = to_device(ys, torch.cuda.current_device())
     if out.shape<=torch.Size([1]):
         loss = out
     else:
@@ -91,6 +92,7 @@ class OneHotCallBack(Callback):
         return add_metrics(last_metrics, self.val/self.count)
 
 def conll_f1(pred, *true, eps:float = 1e-9):
+    true = to_device(true, torch.cuda.current_device())
     pred = pred.argmax(-1)
     _, label_ids, label_mask = true
     mask = label_mask.view(-1)

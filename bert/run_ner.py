@@ -7,7 +7,7 @@ import numpy as np
 
 import fire
 import torch
-from fastai.basic_data import DataBunch
+from fastai.basic_data import DataBunch, DatasetType
 from fastai.basic_train import Learner
 from fastai.metrics import fbeta
 from fastai.torch_core import flatten_model, to_device
@@ -196,6 +196,8 @@ def run_ner(lang:str='eng',
         do_train(learn, epochs, lr, name, freez, discr, one_cycle,save)
     if evalm:
         do_eval(learn, test_dl)
+        res = learn.validate(test_dl, metrics=[conll_f1])
+        print(res)
 
 if __name__ == '__main__':
     fire.Fire(run_ner)
