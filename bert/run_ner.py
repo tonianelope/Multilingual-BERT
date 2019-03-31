@@ -10,7 +10,7 @@ import torch
 from fastai.basic_data import DataBunch
 from fastai.basic_train import Learner
 from fastai.metrics import fbeta
-from fastai.torch_core import flatten_model
+from fastai.torch_core import flatten_model, to_device
 from fastai.train import to_fp16
 from learner import (OneHotCallBack, conll_f1, create_fp16_cb, ner_loss_func,
                      write_eval)
@@ -67,6 +67,7 @@ def do_train(learn, epochs, lr, name, freez, discr, one_cycle, save):
 def do_eval(learn, dataloader):
     scores = []
     for xb, yb in dataloader:
+        xb , yb = to_device(xb, learn.data.device), to_device(yb, learn.data.device)
         pred = learn.model(*xb)
         f1 = conll_f1(pred, *yb)
         scores.append(f1)
@@ -99,9 +100,7 @@ def run_ner(lang:str='eng',
             evalm:str=False,
 	    save:bool=False,
 ):
-
-
-    name = "_".join(map(str,[task, lang, batch_size, lr, max_seq_len, fp16]))
+    name = "_".join(map(str,[task, lang, batch_size, lr, max_seq_len,train, evalm]))
     init_logger(log_dir, name)
 
     if rand_seed:

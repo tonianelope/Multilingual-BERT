@@ -95,7 +95,7 @@ class NerDataset(Dataset):
         # print(" ".join(self.tokenizer.convert_ids_to_tokens(x)))
         # #print(y)
 
-        xb = (x, segment_ids, x_mask, y)
+        xb = (x, segment_ids, x_mask)
         yb = (one_hot_labels, y, y_mask)
 
         return xb, yb
@@ -153,7 +153,7 @@ def pad(batch, bertmax=512):
         label_mask.append( pad_fun(y[2]))
         one_hot_labels.append(np.eye(len(label2idx), dtype=np.float32)[label_id])
 
-    return ( ( t(input_ids), t(segment_ids), t(input_mask), t(label_ids))  ,
+    return ( ( t(input_ids), t(segment_ids), t(input_mask))  ,
              ( t(one_hot_labels), t(label_ids), t(label_mask).byte()) )
 
 # TODO compare difference between broken up tokens (e.g. predict and not predict)
