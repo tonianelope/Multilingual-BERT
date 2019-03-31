@@ -47,6 +47,32 @@ def bert_layer_list(model):
     ms.append(torch.nn.ModuleList(flm[-2:]))
     return ms
 
+def do_train(learn, epochs, lr, name, freez, discr, one_cycle):
+    lrs = lr if not discr else learn.lr_range(slice(start_lr, end_lr))
+    for epoch in range(epochs):
+        if freez:
+            if epoch==0: learn.freeze()
+            elif epoch==epochs-1: learn.unfreeze()
+            else:
+                lay = (15//(epochs-1)) * epoch * -1
+                print('freez top ', lay, ' off ', 15)
+                learn.freeze_to(lay)
+        if one_cycle:
+            learn.fit_one_cylce(1, lrs, mom=(0.8, 0.7))
+        else:
+            learn.fit(1, lrs)
+        m_path = learn.save(f"{name}_{epoch}_model", return_path=True)
+    print(f'Saved model to {m_path}')
+
+def do_eval(learn, dataloader):
+    scores = []
+    for xb, yb in dataloader:
+        pred = learn.model(*xb)
+        f1 = conll_f1(pred, *yb)
+        scores.append(f1)
+    print(scores)
+    print(np.array(scores).mean())
+
 def run_ner(lang:str='eng',
             log_dir:str='logs',
             task:str=NER,
@@ -69,6 +95,8 @@ def run_ner(lang:str='eng',
             one_cycle:bool=False,
             discr:bool=False,
             tuned_learner:str=None,
+            train:str=True,
+            evalm:str=False,
 ):
 
 
@@ -167,22 +195,10 @@ def run_ner(lang:str='eng',
     # learn.lr_find()
     # learn.recorder.plot(skip_end=15)
 
-    lrs = lr if not discr else learn.lr_range(slice(start_lr, end_lr))
-    for epoch in range(epochs):
-        if freez:
-            if epoch==0: learn.freeze()
-            elif epoch==epochs-1: learn.unfreeze()
-            else:
-                lay = (15//(epochs-1)) * epoch * -1
-                print('freez top ', lay, ' off ', 15)
-                learn.freeze_to(lay)
-        if one_cycle:
-            learn.fit_one_cylce(1, lrs, mom=(0.8, 0.7))
-        else:
-            learn.fit(1, lrs)
-        m_path = learn.save(f"{name}_{epoch}_model", return_path=True)
-        write_eval(f'EPOCH{epoch}',epoch=epoch)
-    print(f'Saved model to {m_path}')
+    if train:
+        do_train(learn, epochs, lr, name, freez, discr, one_cycle)
+    if evalm:
+        do_eval(learn, test_dl)
 
 if __name__ == '__main__':
     fire.Fire(run_ner)
