@@ -184,7 +184,30 @@ def read_conll_data(input_file:str):
             labels.append(label)
         return lines
 
-def conll_to_csv(file):
+def conll_to_docs(input_file:str, output_file:str):
+    with codecs.open(input_file, "r", encoding="utf-8") as infile, codecs.open(output_file, 'w', encoding="utf-8") as outfile:
+        lines = []
+        words = []
+        labels = []
+        for line in infile:
+            contends = line.strip()
+            word = line.strip().split(' ')[0]
+            if contends.startswith("-DOCSTART-"):
+                words.append("")
+                outfile.write("\n")
+                continue
+
+            if len(contends) == 0 and words[-1] == '.':
+                w = ' '.join([word for word in words if len(word) > 0])
+                outfile.write(w+"\n")
+                words = []
+                labels = []
+                continue
+            words.append(word)
+        return lines
+
+
+def conll_to_csv(file:str):
     """Write CONLL-2003 to csv"""
 
     csv_dir = Path('./csv')
