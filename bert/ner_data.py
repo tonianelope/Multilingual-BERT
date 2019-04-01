@@ -97,7 +97,7 @@ class NerDataset(Dataset):
         # #print(y)
 
         xb = (x, segment_ids, x_mask)
-        yb = (one_hot_labels, y, y_mask)
+        yb = (one_hot_labels, y, x_mask)
 
         return xb, yb
 

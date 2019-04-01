@@ -90,7 +90,7 @@ def run_ner(lang:str='eng',
             do_eval:str=False,
 	        save:bool=False,
 ):
-    name = "_".join(map(str,[task, lang, batch_size, lr, max_seq_len,do_train, do_eval]))
+    name = "_".join(map(str,['Weight',task, lang, batch_size, lr, max_seq_len,do_train, do_eval]))
     init_logger(log_dir, name)
 
     if rand_seed:

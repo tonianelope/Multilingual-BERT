@@ -13,6 +13,7 @@ from pytorch_pretrained_bert.modeling import BertModel, BertPreTrainedModel
 from pytorch_pretrained_bert.optimization import warmup_linear
 
 EPOCH =0
+WEIGHTS = torch.tensor([0.0, 0.2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
 
 def write_eval(msg, epoch=EPOCH):
     global EPOCH
@@ -37,7 +38,7 @@ def ner_loss_func(out, *ys, cross_ent=False):
     if out.shape<=torch.Size([1]):
         loss = out
     else:
-        loss_fct = torch.nn.CrossEntropyLoss() #ignore_index=0)
+        loss_fct = torch.nn.CrossEntropyLoss(weights=WEIGHTS) #ignore_index=0)
         _, labels, attention_mask = ys
         # Only keep active parts of the loss
         if attention_mask is not None:
@@ -47,6 +48,7 @@ def ner_loss_func(out, *ys, cross_ent=False):
             try:
                 loss = loss_fct(active_logits, active_labels)
             except Exception as e:
+                print('No labels')
                 loss = loss_fct(out.view(-1, len(VOCAB)), labels.view(-1))
         else:
             loss = loss_fct(out.view(-1, len(VOCAB)), labels.view(-1))
@@ -141,9 +143,9 @@ def conll_f1(pred, *true, eps:float = 1e-9):
     pred = pred.view(-1)
     labels = label_ids.view(-1)
 
-    #y_pred = torch.masked_select(pred, mask)
-    #y_true = torch.masked_select(labels, mask)
-    y_pred, y_true = pred, labels
+    y_pred = torch.masked_select(pred, mask)
+    y_true = torch.masked_select(labels, mask)
+    #y_pred, y_true = pred, labels
     #write_eval_lables(y_pred, y_true)
     logging.info('EVAL')
     logging.info(y_pred)
