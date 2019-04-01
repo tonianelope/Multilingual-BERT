@@ -134,13 +134,16 @@ class FP16_Callback(LearnerCallback):
         return {'last_loss': loss, 'skip_bwd': self.fp16}
 
 def conll_f1(pred, *true, eps:float = 1e-9):
+    true = to_device(true, torch.cuda.current_device())
     pred = pred.argmax(-1)
     _, label_ids, label_mask = true
     mask = label_mask.view(-1)
     pred = pred.view(-1)
     labels = label_ids.view(-1)
-    y_pred = torch.masked_select(pred, mask)
-    y_true = torch.masked_select(labels, mask)
+
+    #y_pred = torch.masked_select(pred, mask)
+    #y_true = torch.masked_select(labels, mask)
+    y_pred, y_true = pred, labels
     #write_eval_lables(y_pred, y_true)
     logging.info('EVAL')
     logging.info(y_pred)
@@ -171,6 +174,8 @@ class Conll_F1(Callback):
         pred = last_output.argmax(-1)
         true = to_device(last_target, torch.cuda.current_device())
         _, label_ids, label_mask = true
+        mask = label_mask.view(-1)
+        pred = pred.view(-1)
         labels = label_ids.view(-1)
         y_pred = torch.masked_select(pred, mask)
         y_true = torch.masked_select(labels, mask)

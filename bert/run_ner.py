@@ -149,6 +149,7 @@ def run_ner(lang:str='eng',
     train_opt_steps = int(len(train_dl.dataset) / batch_size / grad_acc_steps) * epochs
     f1 = partial(fbeta, beta=1, sigmoid=False)
     loss_fun = ner_loss_func
+    metrics = [conll_f1, Conll_F1()]
     fp16_cb_fns = partial(create_fp16_cb,
                           train_opt_steps = train_opt_steps,
                           gradient_accumulation_steps = grad_acc_steps,
@@ -166,7 +167,7 @@ def run_ner(lang:str='eng',
 
     learn = Learner(data, model, optim,
                     loss_func=loss_fun,
-                    metrics=[conll_f1, Conll_F1],
+                    metrics=metrics
                     true_wd=False,
                     callback_fns=fp16_cb_fns,
                     layer_groups=None if not freez else bert_layer_list(model),
@@ -185,8 +186,8 @@ def run_ner(lang:str='eng',
     if do_train:
         train(learn, epochs, lr, name, freez, discr, one_cycle,save)
     if do_eval:
-        res = learn.validate(test_dl, metrics=[conll_f1])
-        print(f'Validation on test set:\nloss {res[0]} conll_f1: {res[1]}')
+        res = learn.validate(test_dl, metrics=metrics)
+        print(f'Validation on test set:\nloss {res[0]}, scores: {res[1:]}')
 
 if __name__ == '__main__':
     fire.Fire(run_ner)
