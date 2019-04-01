@@ -12,8 +12,8 @@ from fastai.basic_train import Learner
 from fastai.metrics import fbeta
 from fastai.torch_core import flatten_model, to_device
 from fastai.train import to_fp16
-from learner import (OneHotCallBack, conll_f1, create_fp16_cb, ner_loss_func,
-                     write_eval)
+from learner import (Conll_F1, OneHotCallBack, conll_f1, create_fp16_cb,
+                     ner_loss_func, write_eval)
 from ner_data import VOCAB, NerDataset, idx2label, pad
 from optimizer import BertAdam
 from pytorch_pretrained_bert import BertForTokenClassification
@@ -166,7 +166,7 @@ def run_ner(lang:str='eng',
 
     learn = Learner(data, model, optim,
                     loss_func=loss_fun,
-                    metrics=[conll_f1],
+                    metrics=[conll_f1, Conll_F1],
                     true_wd=False,
                     callback_fns=fp16_cb_fns,
                     layer_groups=None if not freez else bert_layer_list(model),

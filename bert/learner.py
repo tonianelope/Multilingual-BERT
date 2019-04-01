@@ -37,7 +37,7 @@ def ner_loss_func(out, *ys, cross_ent=False):
     if out.shape<=torch.Size([1]):
         loss = out
     else:
-        loss_fct = torch.nn.CrossEntropyLoss(ignore_index=0)
+        loss_fct = torch.nn.CrossEntropyLoss() #ignore_index=0)
         _, labels, attention_mask = ys
         # Only keep active parts of the loss
         if attention_mask is not None:
@@ -91,32 +91,6 @@ class OneHotCallBack(Callback):
         self.epoch +=1
         return add_metrics(last_metrics, self.val/self.count)
 
-def conll_f1(pred, *true, eps:float = 1e-9):
-    true = to_device(true, torch.cuda.current_device())
-    pred = pred.argmax(-1)
-    _, label_ids, label_mask = true
-    mask = label_mask.view(-1)
-    pred = pred.view(-1)
-    labels = label_ids.view(-1)
-    y_pred = torch.masked_select(pred, mask)
-    y_true = torch.masked_select(labels, mask)
-    #write_eval_lables(y_pred, y_true)
-    logging.info('EVAL')
-    logging.info(y_pred)
-    logging.info(y_true)
-
-    all_pos = len(y_pred[y_pred>1])
-    actual_pos = len(y_true[y_true>1])
-    correct_pos =(np.logical_and(y_true==y_pred, y_true>1)).sum().item()
-    logging.info(f'{all_pos} - {actual_pos} -> {correct_pos}')
-    prec = correct_pos / (all_pos + eps)
-    rec = correct_pos / (actual_pos + eps)
-    f1 = (2*prec*rec)/(prec+rec+eps)
-    logging.info(f'f1: {f1}')
-    #write_log(f'f1: {f1}')
-
-    return torch.Tensor([f1])
-
 def create_fp16_cb(learn, **kwargs):
     return FP16_Callback(learn, **kwargs)
 
@@ -158,3 +132,54 @@ class FP16_Callback(LearnerCallback):
                 param_group['lr'] = lr_this_step
             global_step += 1
         return {'last_loss': loss, 'skip_bwd': self.fp16}
+
+def conll_f1(pred, *true, eps:float = 1e-9):
+    pred = pred.argmax(-1)
+    _, label_ids, label_mask = true
+    mask = label_mask.view(-1)
+    pred = pred.view(-1)
+    labels = label_ids.view(-1)
+    y_pred = torch.masked_select(pred, mask)
+    y_true = torch.masked_select(labels, mask)
+    #write_eval_lables(y_pred, y_true)
+    logging.info('EVAL')
+    logging.info(y_pred)
+    logging.info(y_true)
+
+    all_pos = len(y_pred[y_pred>1])
+    actual_pos = len(y_true[y_true>1])
+    correct_pos =(np.logical_and(y_true==y_pred, y_true>1)).sum().item()
+    logging.info(f'{all_pos} - {actual_pos} -> {correct_pos}')
+    prec = correct_pos / (all_pos + eps)
+    rec = correct_pos / (actual_pos + eps)
+    f1 = (2*prec*rec)/(prec+rec+eps)
+    logging.info(f'f1: {f1}')
+    #write_log(f'f1: {f1}')
+
+    return torch.Tensor([f1])
+
+class Conll_F1(Callback):
+
+    def __init__(self):
+        super().__init__()
+        self.name = 'Total F1'
+
+    def on_epoch_begin(self, **kwargs):
+        self.correct, self.predict, self.true = 0,0,0
+
+    def on_batch_end(self, last_output, last_target, **kwargs):
+        pred = last_output.argmax(-1)
+        true = to_device(last_target, torch.cuda.current_device())
+        _, label_ids, label_mask = true
+        labels = label_ids.view(-1)
+        y_pred = torch.masked_select(pred, mask)
+        y_true = torch.masked_select(labels, mask)
+        self.predict += len(y_pred[y_pred>1])
+        self.true += len(y_true[y_true>1])
+        self.correct +=(np.logical_and(y_true==y_pred, y_true>1)).sum().item()
+
+    def on_epoch_end(self, last_metrics, **kwargs):
+        eps = 1e-9
+        prec = self.correct / (self.predict + eps)
+        rec = self.correct / (self.true + eps)
+        return add_metrics(last_metrics, (2*prec*rec)/(prec+rec+eps))

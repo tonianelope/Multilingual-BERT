@@ -12,6 +12,7 @@ PAD = '[PAD]'
 VOCAB = (PAD, 'O', 'I-LOC', 'B-PER', 'I-PER', 'I-ORG', 'I-MISC', 'B-MISC', 'B-LOC', 'B-ORG')
 label2idx = {tag: idx for idx, tag in enumerate(VOCAB)}
 idx2label = {idx: tag for idx, tag in enumerate(VOCAB)}
+b2i = {'B-PER':'I-PER', 'B-LOC':'I-LOC','B-ORG':'I-ORG', 'B-MISC':'I-MISC'}
 
 TRAIN = 'train'
 DEV = 'dev'
