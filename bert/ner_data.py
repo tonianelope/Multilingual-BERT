@@ -67,7 +67,6 @@ class NerDataset(Dataset):
             xx = self.tokenizer.convert_tokens_to_ids(tokens)
 
             is_head = [1] + [0]*(len(tokens) - 1)
-            if w in ("[CLS]", "[SEP]"): is_head = [0]
 
             t = [t] + [PAD] * (len(tokens) - 1)  # <PAD>: no decision
             yy = [label2idx[each] for each in t]  # (T,)
@@ -165,7 +164,7 @@ def pad(batch, bertmax=512):
 
 # from https://github.com/sberbank-ai/ner-bert/blob/master/examples/conll-2003.ipynb
 def read_conll_data(input_file:str):
-    """Reads CONLL-2003 format data."""
+    """Read CONLL-2003 format data."""
     with codecs.open(input_file, "r", encoding="utf-8") as f:
         lines = []
         words = []

@@ -124,7 +124,7 @@ def run_ner(lang:str='eng',
     train_dl = DataLoader(
         dataset=NerDataset(trainset,bert_model,max_seq_len=max_seq_len, ds_size=ds_size),
         batch_size=batch_size,
-        shuffle=True,
+        shuffle=False,#True,
         collate_fn=pad
     )
 
@@ -198,8 +198,9 @@ def run_ner(lang:str='eng',
             if one_cycle: learn.fit_one_cylce(1, lrs, mom=(0.8, 0.7))
             else: learn.fit(1, lrs)
 
+            #learn.recorder.plot_losses()
             res = learn.validate(test_dl, metrics=metrics)
-            met_res = [f'{m.name}: {r}' for m, r in zip(metrics, res[1:])]
+            met_res = [f'{m.__name__}: {r}' for m, r in zip(metrics, res[1:])]
             print(f'VALIDATION DEV SET:\nloss {res[0]}, {met_res}')
 
             if save:
@@ -208,7 +209,7 @@ def run_ner(lang:str='eng',
 
     if do_eval:
         res = learn.validate(test_dl, metrics=metrics)
-        met_res = [f'{m.name}: {r}' for m, r in zip(metrics, res[1:])]
+        met_res = [f'{m.__name__}: {r}' for m, r in zip(metrics, res[1:])]
         print(f'Validation on TEST SET:\nloss {res[0]}, {met_res}')
 
 if __name__ == '__main__':

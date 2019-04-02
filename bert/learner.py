@@ -39,7 +39,8 @@ def ner_loss_func(out, *ys, cross_ent=False):
         loss = out
     else:
         # if using weights need to convert to cuda!!!
-        loss_fct = torch.nn.CrossEntropyLoss(ignore_index=0)
+        ws = to_device(WEIGHTS, torch.cuda.current_device())
+        loss_fct = torch.nn.CrossEntropyLoss(weight=ws)#, ignore_index=0)
         _, labels, attention_mask = ys
         # Only keep active parts of the loss
         if attention_mask is not None:
@@ -140,12 +141,11 @@ def conll_f1(pred, *true, eps:float = 1e-9):
     true = to_device(true, torch.cuda.current_device())
     pred = pred.argmax(-1)
     _, label_ids, label_mask = true
-    mask = label_mask.view(-1)
-    pred = pred.view(-1)
-    labels = label_ids.view(-1)
-
-    y_pred = torch.masked_select(pred, mask)
-    y_true = torch.masked_select(labels, mask)
+    mask = label_mask.view(-1)==1 
+    y_pred = pred.view(-1)[mask]
+    y_true = label_ids.view(-1)[mask]
+    #y_pred = torch.masked_select(pred, mask)
+    #y_true = torch.masked_select(labels, mask)
     #y_pred, y_true = pred, labels
     #write_eval_lables(y_pred, y_true)
     logging.info('EVAL')
@@ -168,6 +168,7 @@ class Conll_F1(Callback):
 
     def __init__(self):
         super().__init__()
+        self.__name__='Total F1'
         self.name = 'Total F1'
 
     def on_epoch_begin(self, **kwargs):
