@@ -103,7 +103,8 @@ def run_ner(lang:str='eng',
         random.seed(rand_seed)
         np.random.seed(rand_seed)
         torch.manual_seed(rand_seed)
-
+        if torch.cuda.is_available(): 
+            torch.cuda.manual_seed_all(rand_seed)
     if grad_acc_steps < 1:
         raise ValueError(f"""Invalid grad_acc_steps parameter:
                          {grad_acc_steps}, should be >= 1""")
@@ -124,7 +125,7 @@ def run_ner(lang:str='eng',
     train_dl = DataLoader(
         dataset=NerDataset(trainset,bert_model,max_seq_len=max_seq_len, ds_size=ds_size),
         batch_size=batch_size,
-        shuffle=False,#True,
+        shuffle=True,
         collate_fn=pad
     )
 
@@ -198,8 +199,10 @@ def run_ner(lang:str='eng',
             if one_cycle: learn.fit_one_cylce(1, lrs, mom=(0.8, 0.7))
             else: learn.fit(1, lrs)
 
+            logging.info('Validation VAL')
+            write_eval('Validation VAL')
             #learn.recorder.plot_losses()
-            res = learn.validate(test_dl, metrics=metrics)
+            res = learn.validate(dev_dl, metrics=metrics)
             met_res = [f'{m.__name__}: {r}' for m, r in zip(metrics, res[1:])]
             print(f'VALIDATION DEV SET:\nloss {res[0]}, {met_res}')
 

@@ -14,6 +14,7 @@ from pytorch_pretrained_bert.optimization import warmup_linear
 
 EPOCH =0
 WEIGHTS = torch.tensor([0.0, 0.2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+i = 0
 
 def write_eval(msg, epoch=EPOCH):
     global EPOCH
@@ -51,6 +52,7 @@ def ner_loss_func(out, *ys, cross_ent=False):
             loss = loss_fct(active_logits, active_labels)
         else:
             loss = loss_fct(out.view(-1, len(VOCAB)), labels.view(-1))
+    #print(loss)
     return loss
 
 class OneHotCallBack(Callback):
@@ -139,12 +141,12 @@ def conll_f1(pred, *true, eps:float = 1e-9):
     pred = pred.argmax(-1)
     _, label_ids, label_mask = true
     mask = label_mask.view(-1)==1 
-    y_pred = pred.view(-1)
-    y_true = label_ids.view(-1)#[mask]
+    y_pred = pred.view(-1)[mask]
+    y_true = label_ids.view(-1)[mask]
     #y_pred = torch.masked_select(pred, mask)
     #y_true = torch.masked_select(labels, mask)
     #y_pred, y_true = pred, labels
-    #write_eval_lables(y_pred, y_true)
+    write_eval_lables(y_pred, y_true)
     logging.info('EVAL')
     logging.info(y_pred)
     logging.info(y_true)
@@ -170,6 +172,8 @@ class Conll_F1(Callback):
 
     def on_epoch_begin(self, **kwargs):
         self.correct, self.predict, self.true = 0,0,0
+        global i 
+        i = 0
 
     def on_batch_end(self, last_output, last_target, **kwargs):
         pred = last_output.argmax(-1)

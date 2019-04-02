@@ -40,15 +40,13 @@ class NerDataset(Dataset):
         for entry in data:
             words = [line.split()[0] for line in entry.splitlines()] #words.split()
             tags = ([line.split()[-1] for line in entry.splitlines()]) #tags.split()
-            tokens = [t for w in words for t in self.tokenizer.tokenize(w)] 
+            #tokens = [t for w in words for t in self.tokenizer.tokenize(w)] 
             # ['-DOCSTART-']
-            if words[0]=='-DOCSTART-': continue
+            #if words[0]=='-DOCSTART-': continue
             # account for [cls] [sep] token
-            if (len(tokens)+2) > max_seq_len:
-                print(' '.join(words))
-                skipped +=1
-                words = words[:max_seq_len-2]
-                tags = tags[:max_seq_len-2]
+            #if (len(tokens)+2) > max_seq_len:
+            #    skipped +=1
+            #    continue
 
             sents.append(["[CLS]"]+words+["[SEP]"])
             labels.append([PAD]+tags+[PAD])
@@ -80,9 +78,9 @@ class NerDataset(Dataset):
             is_label = [1] if yy[0]>1 else [0]
             is_label += [0] * (len(tokens)-1)
 
-            if self.max_seq_len < len(x) + len(xx):
-                print('Too long example')
-                return self.__getitem__(index+1)
+            #if self.max_seq_len < len(x) + len(xx):
+                #print('Too long example')
+           #     return self.__getitem__(index+1)
 
             x.extend(xx)
             y.extend(yy)
@@ -161,9 +159,6 @@ def pad(batch, bertmax=512):
         label_mask.append( pad_fun(y[2]))
         one_hot_labels.append(np.eye(len(label2idx), dtype=np.float32)[label_id])
 
-    logging.info(t(input_ids))
-    logging.info(t(segment_ids))
-    logging.info(t(input_mask))
     return ( ( t(input_ids),),# t(segment_ids), t(input_mask))  ,
              ( t(one_hot_labels), t(label_ids), t(label_mask).byte()) )
 
@@ -195,6 +190,7 @@ def read_conll_data(input_file:str):
             labels.append(label)
         return lines
 
+# TODO fix for sent split
 def conll_to_docs(input_file:str, output_file:str):
     with codecs.open(input_file, "r", encoding="utf-8") as infile, codecs.open(output_file, 'w', encoding="utf-8") as outfile:
         lines = []
