@@ -67,6 +67,7 @@ class NerDataset(Dataset):
             xx = self.tokenizer.convert_tokens_to_ids(tokens)
 
             is_head = [1] + [0]*(len(tokens) - 1)
+            if w in ("[CLS]", "[SEP]"): is_head = [0]
 
             t = [t] + [PAD] * (len(tokens) - 1)  # <PAD>: no decision
             yy = [label2idx[each] for each in t]  # (T,)
@@ -154,7 +155,10 @@ def pad(batch, bertmax=512):
         label_mask.append( pad_fun(y[2]))
         one_hot_labels.append(np.eye(len(label2idx), dtype=np.float32)[label_id])
 
-    return ( ( t(input_ids), t(segment_ids), t(input_mask))  ,
+    logging.info(t(input_ids))
+    logging.info(t(segment_ids))
+    logging.info(t(input_mask))
+    return ( ( t(input_ids),),# t(segment_ids), t(input_mask))  ,
              ( t(one_hot_labels), t(label_ids), t(label_mask).byte()) )
 
 # TODO compare difference between broken up tokens (e.g. predict and not predict)

@@ -32,6 +32,12 @@ def init_logger(log_dir, name):
                     level=logging.INFO
     )
 
+def apply_freez(learn, lay):
+    if lay==0: learn.freeze()
+    if lay==15: learn.unfreeze()
+    else: learn.freeze_to(lay)
+    print('Freezing layers ', lay, ' off ', 15)
+
 def bert_layer_list(model):
     ms = torch.nn.ModuleList()
 
@@ -167,9 +173,9 @@ def run_ner(lang:str='eng',
 
     learn = Learner(data, model, optim,
                     loss_func=loss_fun,
-                    metrics=metrics
+                    metrics=metrics,
                     true_wd=False,
-                    callback_fns=fp16_cb_fns,
+                    #callback_fns=fp16_cb_fns,
                     layer_groups=None if not freez else bert_layer_list(model),
                     path='learn',
                     )
@@ -182,12 +188,28 @@ def run_ner(lang:str='eng',
 
     # learn.lr_find()
     # learn.recorder.plot(skip_end=15)
+    lrs = lr if not discr else learn.lr_range(slice(start_lr, end_lr))
 
     if do_train:
-        train(learn, epochs, lr, name, freez, discr, one_cycle,save)
+        for epoch in range(epochs):
+            if freez: apply_freez(learn, (15//(epochs-1)) * epoch * -1)
+
+            # Fit Learner - eg train model
+            if one_cycle: learn.fit_one_cylce(1, lrs, mom=(0.8, 0.7))
+            else: learn.fit(1, lrs)
+
+            res = learn.validate(test_dl, metrics=metrics)
+            met_res = [f'{m.name}: {r}' for m, r in zip(metrics, res[1:])]
+            print(f'VALIDATION DEV SET:\nloss {res[0]}, {met_res}')
+
+            if save:
+                m_path = learn.save(f"{name}_{epoch}_model", return_path=True)
+                print(f'Saved model to {m_path}')
+
     if do_eval:
         res = learn.validate(test_dl, metrics=metrics)
-        print(f'Validation on test set:\nloss {res[0]}, scores: {res[1:]}')
+        met_res = [f'{m.name}: {r}' for m, r in zip(metrics, res[1:])]
+        print(f'Validation on TEST SET:\nloss {res[0]}, {met_res}')
 
 if __name__ == '__main__':
     fire.Fire(run_ner)

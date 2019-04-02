@@ -38,7 +38,8 @@ def ner_loss_func(out, *ys, cross_ent=False):
     if out.shape<=torch.Size([1]):
         loss = out
     else:
-        loss_fct = torch.nn.CrossEntropyLoss(weights=WEIGHTS) #ignore_index=0)
+        # if using weights need to convert to cuda!!!
+        loss_fct = torch.nn.CrossEntropyLoss(ignore_index=0)
         _, labels, attention_mask = ys
         # Only keep active parts of the loss
         if attention_mask is not None:
@@ -158,7 +159,7 @@ def conll_f1(pred, *true, eps:float = 1e-9):
     prec = correct_pos / (all_pos + eps)
     rec = correct_pos / (actual_pos + eps)
     f1 = (2*prec*rec)/(prec+rec+eps)
-    logging.info(f'f1: {f1}')
+    logging.info(f'f1: {f1}   prec: {prec}, rec: {rec}')
     #write_log(f'f1: {f1}')
 
     return torch.Tensor([f1])
