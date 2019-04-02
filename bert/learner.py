@@ -40,18 +40,15 @@ def ner_loss_func(out, *ys, cross_ent=False):
     else:
         # if using weights need to convert to cuda!!!
         ws = to_device(WEIGHTS, torch.cuda.current_device())
-        loss_fct = torch.nn.CrossEntropyLoss(weight=ws)#, ignore_index=0)
+        #loss_fct = torch.nn.CrossEntropyLoss(weight=ws)#, ignore_index=0)
+        loss_fct = torch.nn.CrossEntropyLoss(ignore_index=0)
         _, labels, attention_mask = ys
         # Only keep active parts of the loss
         if attention_mask is not None:
             active_loss = attention_mask.view(-1) == 1
             active_logits = out.view(-1, len(VOCAB))[active_loss]
             active_labels = labels.view(-1)[active_loss]
-            try:
-                loss = loss_fct(active_logits, active_labels)
-            except Exception as e:
-                print('No labels')
-                loss = loss_fct(out.view(-1, len(VOCAB)), labels.view(-1))
+            loss = loss_fct(active_logits, active_labels)
         else:
             loss = loss_fct(out.view(-1, len(VOCAB)), labels.view(-1))
     return loss
@@ -74,7 +71,7 @@ class OneHotCallBack(Callback):
     def on_batch_end(self, last_output, last_target, **kwargs):
         "Update metric computation with `last_output` and `last_target`."
 
-        #print(f"step: loss: {kwargs['last_loss'].item()}")
+        #logging.info(f"step: loss: {kwargs['last_loss'].item()}")
         logging.info(f'masked target: {target_masked}')
         logging.info(f'masked output: {out_masked}')
 
@@ -142,8 +139,8 @@ def conll_f1(pred, *true, eps:float = 1e-9):
     pred = pred.argmax(-1)
     _, label_ids, label_mask = true
     mask = label_mask.view(-1)==1 
-    y_pred = pred.view(-1)[mask]
-    y_true = label_ids.view(-1)[mask]
+    y_pred = pred.view(-1)
+    y_true = label_ids.view(-1)#[mask]
     #y_pred = torch.masked_select(pred, mask)
     #y_true = torch.masked_select(labels, mask)
     #y_pred, y_true = pred, labels
@@ -181,8 +178,9 @@ class Conll_F1(Callback):
         mask = label_mask.view(-1)
         pred = pred.view(-1)
         labels = label_ids.view(-1)
-        y_pred = torch.masked_select(pred, mask)
-        y_true = torch.masked_select(labels, mask)
+        mask = label_mask.view(-1)==1 
+        y_pred = pred.view(-1)[mask] 
+        y_true = label_ids.view(-1)[mask]
         self.predict += len(y_pred[y_pred>1])
         self.true += len(y_true[y_true>1])
         self.correct +=(np.logical_and(y_true==y_pred, y_true>1)).sum().item()
@@ -191,4 +189,12 @@ class Conll_F1(Callback):
         eps = 1e-9
         prec = self.correct / (self.predict + eps)
         rec = self.correct / (self.true + eps)
-        return add_metrics(last_metrics, (2*prec*rec)/(prec+rec+eps))
+        logging.info(f"====epoch {kwargs['epoch']}====")
+        logging.info(f'num pred: {self.predict}')
+        logging.info(f'num corr: {self.correct}')
+        logging.info(f'num true: {self.true}')
+        logging.info(f'prec: {prec}')
+        logging.info(f'rec: {rec}')
+        f1 =(2*prec*rec)/(prec+rec+eps)
+        logging.info(f'f1: {f1}')
+        return add_metrics(last_metrics,f1)

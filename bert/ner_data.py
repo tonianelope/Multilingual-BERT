@@ -30,28 +30,35 @@ class NerDataset(Dataset):
         self.max_seq_len = max_seq_len
         self.tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=False)
 
-        data = read_conll_data(filepath)
-        org_size = len(data)
+        #data = read_conll_data(filepath)
+        data = open(filepath, 'r').read().strip().split("\n\n")
         if ds_size: data = data[:ds_size]
+        size = len(data)
         skipped=0
         sents, labels = [],[]
 
-        for tags, words in data:
-            words = words.split()
-            tags = tags.split()
+        for entry in data:
+            words = [line.split()[0] for line in entry.splitlines()] #words.split()
+            tags = ([line.split()[-1] for line in entry.splitlines()]) #tags.split()
             tokens = [t for w in words for t in self.tokenizer.tokenize(w)] 
+            # ['-DOCSTART-']
+            if words[0]=='-DOCSTART-': continue
             # account for [cls] [sep] token
             if (len(tokens)+2) > max_seq_len:
+                print(' '.join(words))
                 skipped +=1
-                continue
+                words = words[:max_seq_len-2]
+                tags = tags[:max_seq_len-2]
 
             sents.append(["[CLS]"]+words+["[SEP]"])
             labels.append([PAD]+tags+[PAD])
 
+        org_size = len(sents)
         self.labels, self.sents = labels, sents
         print()
         print(filepath)
-        print(f'Skiped examples: {(skipped/org_size)*100:.2}% => {skipped}/{org_size} ')
+        print(f'lines {size} sents {org_size}')
+        print(f'Truncated examples: {(skipped/org_size)*100:.2}% => {skipped}/{org_size} ')
 
     def __len__(self):
         return len(self.sents)
