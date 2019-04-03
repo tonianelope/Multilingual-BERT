@@ -20,6 +20,7 @@ from pytorch_pretrained_bert import BertForTokenClassification
 from torch.utils.data import DataLoader
 
 NER = 'conll-2003'
+LAYERS = 15
 
 def init_logger(log_dir, name):
     log_dir = Path(log_dir)
@@ -34,9 +35,9 @@ def init_logger(log_dir, name):
 
 def apply_freez(learn, lay):
     if lay==0: learn.freeze()
-    if lay==15: learn.unfreeze()
+    if lay==LAYERS: learn.unfreeze()
     else: learn.freeze_to(lay)
-    print('Freezing layers ', lay, ' off ', 15)
+    print('Freezing layers ', lay, ' off ', LAYERS)
 
 def bert_layer_list(model):
     ms = torch.nn.ModuleList()
@@ -103,7 +104,7 @@ def run_ner(lang:str='eng',
         random.seed(rand_seed)
         np.random.seed(rand_seed)
         torch.manual_seed(rand_seed)
-        if torch.cuda.is_available(): 
+        if torch.cuda.is_available():
             torch.cuda.manual_seed_all(rand_seed)
     if grad_acc_steps < 1:
         raise ValueError(f"""Invalid grad_acc_steps parameter:
@@ -189,7 +190,8 @@ def run_ner(lang:str='eng',
 
     # learn.lr_find()
     # learn.recorder.plot(skip_end=15)
-    lrs = lr if not discr else learn.lr_range(slice(start_lr, end_lr))
+    lrm = 2.6
+    lrs = lr if not discr else learn.lr_range(slice(lr/lrm**LAYERS, lr))
 
     if do_train:
         for epoch in range(epochs):
