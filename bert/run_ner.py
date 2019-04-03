@@ -120,7 +120,7 @@ def run_ner(lang:str='eng',
     print(f'Lang: {lang}\nModel: {bert_model}\nRun: {name}')
     model = BertForTokenClassification.from_pretrained(bert_model, num_labels=len(VOCAB), cache_dir='bertm')
 
-    if batch_size>16: model = torch.nn.DataParallel(model)
+    model = torch.nn.DataParallel(model)
 
     train_dl = DataLoader(
         dataset=NerDataset(trainset,bert_model,max_seq_len=max_seq_len, ds_size=ds_size),
