@@ -22,6 +22,9 @@ basic-bert:
 	$(EXEC) --batch-size=$(BS) --epochs=4 --lr=3e-5 $(W)
 	$(EXEC) --batch-size=$(BS) --epochs=4 --lr=2e-5 $(W)
 
+icetown:
+	$(EXEC) --do-train --do-eval --batch-size=32 --epochs=4 --lr=$(LR) --freez --discr --one-cycle
+
 test1:
 	$(EXEC) --ds-size=1 $(W)
 

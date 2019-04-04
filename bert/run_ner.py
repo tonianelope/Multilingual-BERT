@@ -191,22 +191,23 @@ def run_ner(lang:str='eng',
     # learn.lr_find()
     # learn.recorder.plot(skip_end=15)
     lrm = 2.6
-    lrs = lr if not discr else learn.lr_range(slice(lr/lrm**LAYERS, lr))
+
+    lrs = lr if not discr else learn.lr_range(slice(lr/lrm**(LAYERS), lr))
 
     if do_train:
         for epoch in range(epochs):
             if freez: apply_freez(learn, (15//(epochs-1)) * epoch * -1)
 
             # Fit Learner - eg train model
-            if one_cycle: learn.fit_one_cylce(1, lrs, mom=(0.8, 0.7))
+            if one_cycle: learn.fit_one_cycle(1, lrs, moms=(0.8, 0.7))
             else: learn.fit(1, lrs)
 
             logging.info('Validation VAL')
             write_eval('Validation VAL')
             #learn.recorder.plot_losses()
-            res = learn.validate(dev_dl, metrics=metrics)
-            met_res = [f'{m.__name__}: {r}' for m, r in zip(metrics, res[1:])]
-            print(f'VALIDATION DEV SET:\nloss {res[0]}, {met_res}')
+            #res = learn.validate(dev_dl, metrics=metrics)
+            #met_res = [f'{m.__name__}: {r}' for m, r in zip(metrics, res[1:])]
+            #print(f'VALIDATION DEV SET:\nloss {res[0]}, {met_res}')
 
             if save:
                 m_path = learn.save(f"{name}_{epoch}_model", return_path=True)
