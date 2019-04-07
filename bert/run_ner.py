@@ -199,7 +199,7 @@ def run_ner(lang:str='eng',
 
     if do_train:
         for epoch in range(epochs):
-            if freez: 
+            if freez:
                 lay= (layers//(epochs-1)) * epoch * -1
                 if lay==0:print('Freeze'); learn.freeze()
                 elif lay==layers: print('unfreeze');learn.unfreeze()
