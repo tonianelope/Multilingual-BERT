@@ -20,7 +20,6 @@ from pytorch_pretrained_bert import BertForTokenClassification
 from torch.utils.data import DataLoader
 
 NER = 'conll-2003'
-LAYERS = 15
 
 def init_logger(log_dir, name):
     log_dir = Path(log_dir)
@@ -33,11 +32,11 @@ def init_logger(log_dir, name):
                     level=logging.INFO
     )
 
-def apply_freez(learn, lay):
+def apply_freez(learn, layers, lay):
     if lay==0: learn.freeze()
-    if lay==LAYERS: learn.unfreeze()
+    if lay==layers: learn.unfreeze()
     else: learn.freeze_to(lay)
-    print('Freezing layers ', lay, ' off ', LAYERS)
+    print('Freezing layers ', lay, ' off ', layers)
 
 def bert_layer_list(model):
     ms = torch.nn.ModuleList()
@@ -46,8 +45,9 @@ def bert_layer_list(model):
     # embedding = [0:5] layer
     ms.append(torch.nn.ModuleList(flm[0:5]))
     # encoder (12 layers) = [5:16] [16:27] ... [126:136]
-    for i in range(5, 137, 11):
-        ms.append(torch.nn.ModuleList(flm[i: i+11]))
+    bert_layergroup_size = 11#33
+    for i in range(5, 137, bert_layergroup_size):
+        ms.append(torch.nn.ModuleList(flm[i: i+bert_layergroup_size]))
     # pooling layer = [137:139]
     ms.append(torch.nn.ModuleList(flm[-4:-2]))
     # head = [-2:]
@@ -122,6 +122,8 @@ def run_ner(lang:str='eng',
     model = BertForTokenClassification.from_pretrained(bert_model, num_labels=len(VOCAB), cache_dir='bertm')
 
     model = torch.nn.DataParallel(model)
+    model_lr_group = bert_layer_list(model)
+    layers = len(model_lr_group) 
 
     train_dl = DataLoader(
         dataset=NerDataset(trainset,bert_model,max_seq_len=max_seq_len, ds_size=ds_size),
@@ -178,7 +180,7 @@ def run_ner(lang:str='eng',
                     metrics=metrics,
                     true_wd=False,
                     #callback_fns=fp16_cb_fns,
-                    layer_groups=None if not freez else bert_layer_list(model),
+                    layer_groups=None if not freez else model_lr_group, 
                     path='learn',
                     )
     # load fine-tuned learner
@@ -190,14 +192,21 @@ def run_ner(lang:str='eng',
 
     # learn.lr_find()
     # learn.recorder.plot(skip_end=15)
-    lrm = 2.6
+    lrm = 1.3
 
-    lrs = lr if not discr else learn.lr_range(slice(lr/lrm**(LAYERS), lr))
+    #mlrs = [9e-6] + [5e-5/lrm**3 ,5e-5/lrm**2, 5e-5/lrm, 5e-5] + [0.003/lrm ,0.003]
+    lrs = lr if not discr else learn.lr_range(slice(lr/lrm**(layers), lr))
 
     if do_train:
         for epoch in range(epochs):
-            if freez: apply_freez(learn, (15//(epochs-1)) * epoch * -1)
+            if freez: 
+                lay= (layers//(epochs-1)) * epoch * -1
+                if lay==0:print('Freeze'); learn.freeze()
+                elif lay==layers: print('unfreeze');learn.unfreeze()
+                else: print('freeze2');learn.freeze_to(lay)
+                print('Freezing layers ', lay, ' off ', layers)
 
+            #learn.freeze()
             # Fit Learner - eg train model
             if one_cycle: learn.fit_one_cycle(1, lrs, moms=(0.8, 0.7))
             else: learn.fit(1, lrs)

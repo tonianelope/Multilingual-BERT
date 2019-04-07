@@ -13,7 +13,7 @@ from pytorch_pretrained_bert.modeling import BertModel, BertPreTrainedModel
 from pytorch_pretrained_bert.optimization import warmup_linear
 
 EPOCH =0
-WEIGHTS = torch.tensor([0.0, 0.2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+WEIGHTS = torch.tensor([0.2, 0.2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
 i = 0
 
 def write_eval(msg, epoch=EPOCH):
