@@ -192,7 +192,7 @@ def read_conll_data(input_file:str):
 
 def conll_to_docs(input_file:str, output_file:str):
     with codecs.open(output_file, 'w', encoding="utf-8") as outfile:
-        data = open(filepath, 'r').read().strip().split("\n\n")
+        data = open(input_file, 'r').read().strip().split("\n\n")
         for entry in data:
             words = [line.split()[0] for line in entry.splitlines()]
             if words[0]=='-DOCSTART-':

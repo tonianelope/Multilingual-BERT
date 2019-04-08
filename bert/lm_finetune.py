@@ -8,13 +8,14 @@ from argparse import ArgumentParser
 from collections import namedtuple
 from pathlib import Path
 from tempfile import TemporaryDirectory
-
 import numpy as np
 from tqdm import tqdm
-
+import fastai.train
 import torch
 from fastai.callback import Callback
-from fastai.torch_core import to_device
+from fastai.basic_train import Learner
+from fastai.basic_data import DataBunch
+from fastai.torch_core import to_device, flatten_model, split_no_wd_params
 from optimizer import BertAdam
 from pytorch_pretrained_bert.modeling import BertForPreTraining
 from pytorch_pretrained_bert.optimization import warmup_linear  # ,BertAdam
@@ -27,6 +28,28 @@ InputFeatures = namedtuple("InputFeatures", "input_ids input_mask segment_ids lm
 log_format = '%(asctime)-10s: %(message)s'
 logging.basicConfig(level=logging.INFO, format=log_format)
 
+def bert_layer_list(model):
+    ms = torch.nn.ModuleList()
+
+    flm = flatten_model(model)
+    print(f'Modules Len : {len(flm)}')
+
+    # embedding = [0:5] layer
+    ms.append(torch.nn.ModuleList(flm[0:5]))
+    # encoder (12 layers) = [5:16] [16:27] ... [126:136]
+    bert_layergroup_size = 11#33
+    for i in range(5, 137, bert_layergroup_size):
+        ms.append(torch.nn.ModuleList(flm[i: i+bert_layergroup_size]))
+    # pooling layer = [137:139]
+    ms.append(torch.nn.ModuleList(flm[-6:-4]))
+    # head = [-2:]
+    #ms.append(torch.nn.ModuleList(flm[-4:]))
+    print(ms)
+#    for i,m in enumerate(split_no_wd_params(ms)):
+#        print(f'model{i}')
+#        print(m)
+#
+    return ms
 
 class PregeneratedData(Callback):
     def __init__(self, path, tokenizer, epochs, batch_size, epoch=0):
@@ -41,9 +64,11 @@ class PregeneratedData(Callback):
             num_data_epochs=self.epochs)
         self.epoch_dataset = DataLoader(data, shuffle=True, batch_size=self.batch_size)
 
+    def set_dl(
 
     def on_epoch_begin(self, **kwargs):
         epoch = kwargs['epoch']
+        print(epoch)
         data = PregeneratedDataset(
             epoch=epoch,
             training_path=self.path,
@@ -147,11 +172,12 @@ class PregeneratedDataset(Dataset):
         return self.num_samples
 
     def __getitem__(self, item):
-        return (torch.tensor(self.input_ids[item].astype(np.int64)),
+        return ((torch.tensor(self.input_ids[item].astype(np.int64)),
                 torch.tensor(self.input_masks[item].astype(np.int64)),
                 torch.tensor(self.segment_ids[item].astype(np.int64)),
                 torch.tensor(self.lm_label_ids[item].astype(np.int64)),
-                torch.tensor(self.is_nexts[item].astype(np.int64)))
+                torch.tensor(self.is_nexts[item].astype(np.int64))),
+                torch.tensor([]))
 
 
 def main():
@@ -259,6 +285,10 @@ def main():
     # Prepare optimizer
     optimizer = BertAdam
 
+    epoch_dataset = PregeneratedDataset(epoch=0, training_path=args.pregenerated_data, tokenizer=tokenizer, num_data_epochs=num_data_epochs)    
+    train_dataloader = DataLoader(epoch_dataset, sampler=RandomSampler(epoch_dataset), batch_size=args.train_batch_size)
+    
+    data = DataBunch(train_dataloader,train_dataloader)
     global_step = 0
     logging.info("***** Running training *****")
     logging.info(f"  Num examples = {total_train_examples}")
@@ -267,12 +297,14 @@ def main():
 
     learn = Learner(data, model, optimizer,
                     loss_func=lambda x: x,
-                    callback_fns=PregeneratedDataset(path, tokenizer, epochs, args.train_batch_size)
+                    callbacks=PregeneratedData(args.pregenerated_data,  tokenizer,args.epochs, args.train_batch_size),
                     true_wd=False,
-                    path='learn'
+                    path='learn',
+                    layer_groups=bert_layer_list(model),
     )
-
-    learn.fit_one_cycle(epochs, lrs)
+    lr= args.learning_rate
+    lrs = learn.lr_range(slice(lr/(1.3**15), lr))
+    learn.fit_one_cycle(args.epochs, lrs, wd=1e-4)
 
     m_name = 'Pretrained_lm_'+lang
     m_path = learn.save(m_name, return_path=True)

@@ -75,6 +75,14 @@ class BertAdam(Optimizer):
         defaults = dict(lr=lr, schedule=schedule, warmup=warmup, t_total=t_total,
                         betas=betas, e=e, weight_decay=weight_decay,
                         max_grad_norm=max_grad_norm)
+        #print(params)
+        ps = set()
+        for g in params:
+            x = g['params']
+            #if not ps.isdisjoint(set(x)):
+            #    print(x)
+            ps.update(set(x))
+
         super(BertAdam, self).__init__(params, defaults)
 
     def get_lr(self):
