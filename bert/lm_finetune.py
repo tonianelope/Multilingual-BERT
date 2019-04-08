@@ -8,14 +8,16 @@ from argparse import ArgumentParser
 from collections import namedtuple
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
 import numpy as np
 from tqdm import tqdm
+
 import fastai.train
 import torch
-from fastai.callback import Callback
-from fastai.basic_train import Learner
 from fastai.basic_data import DataBunch
-from fastai.torch_core import to_device, flatten_model, split_no_wd_params
+from fastai.basic_train import Learner
+from fastai.callback import Callback
+from fastai.torch_core import flatten_model, split_no_wd_params, to_device
 from optimizer import BertAdam
 from pytorch_pretrained_bert.modeling import BertForPreTraining
 from pytorch_pretrained_bert.optimization import warmup_linear  # ,BertAdam
@@ -51,6 +53,7 @@ def bert_layer_list(model):
 #
     return ms
 
+# this PR for ref https://github.com/fastai/fastai/commit/16a858751fc3bd37153a8ada434042f7a53df111
 class PregeneratedData(Callback):
     def __init__(self, path, tokenizer, epochs, batch_size, epoch=0):
         self.path = path
@@ -62,9 +65,10 @@ class PregeneratedData(Callback):
             training_path=self.path,
             tokenizer=self.tokenizer,
             num_data_epochs=self.epochs)
-        self.epoch_dataset = DataLoader(data, shuffle=True, batch_size=self.batch_size)
+        self.dataset = data #DataLoader(data, shuffle=True, batch_size=self.batch_size)
 
-    def set_dl(
+    def __len__(self): return len(self.dataset)
+    def __getattr(self, k:str): return getattr(self.dataset, k)
 
     def on_epoch_begin(self, **kwargs):
         epoch = kwargs['epoch']
@@ -74,13 +78,16 @@ class PregeneratedData(Callback):
             training_path=self.path,
             tokenizer=self.tokenizer,
             num_data_epochs=self.epochs)
-        self.epoch_dataset = DataLoader(data, shuffle=True, batch_size=self.batch_size)
+        self.dataset = data# DataLoader(data, shuffle=True, batch_size=self.batch_size)
 
-    def on_batch_begin(self, last_input, last_target, **kwargs):
-        for batch in self.epoch_dataset:
-            batch = to_device(batch, torch.cuda.current_device())
-            t = to_device(torch.tensor([]), torch.cuda.current_device())
-            yield {'last_input': batch, 'last_target': t}
+    def __getitem__(self, idx:int):
+        return self.dataset[idx]
+
+    # def on_batch_begin(self, last_input, last_target, **kwargs):
+    #     for batch in self.epoch_dataset:
+    #         batch = to_device(batch, torch.cuda.current_device())
+    #         t = to_device(torch.tensor([]), torch.cuda.current_device())
+    #         yield {'last_input': batch, 'last_target': t}
 
 def convert_example_to_features(example, tokenizer, max_seq_length):
     tokens = example["tokens"]
@@ -285,9 +292,11 @@ def main():
     # Prepare optimizer
     optimizer = BertAdam
 
-    epoch_dataset = PregeneratedDataset(epoch=0, training_path=args.pregenerated_data, tokenizer=tokenizer, num_data_epochs=num_data_epochs)    
-    train_dataloader = DataLoader(epoch_dataset, sampler=RandomSampler(epoch_dataset), batch_size=args.train_batch_size)
-    
+    train_dataloader = DataLoader(
+        PregeneratedData(args.pregenerated_data,  tokenizer,args.epochs, args.train_batch_size),
+        batch_size=args.train_batch_size,
+    )
+
     data = DataBunch(train_dataloader,train_dataloader)
     global_step = 0
     logging.info("***** Running training *****")
@@ -297,7 +306,6 @@ def main():
 
     learn = Learner(data, model, optimizer,
                     loss_func=lambda x: x,
-                    callbacks=PregeneratedData(args.pregenerated_data,  tokenizer,args.epochs, args.train_batch_size),
                     true_wd=False,
                     path='learn',
                     layer_groups=bert_layer_list(model),
