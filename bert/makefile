@@ -1,6 +1,8 @@
 GERM_URL=https://raw.githubusercontent.com/Nidhi-K/Natural-Language-Processing-Projects/master/Sequential%20CRF%20for%20NER/data/
+GERMI_URL=https://raw.githubusercontent.com/MaviccPRP/ger_ner_evals/master/corpora/conll2003/
 ENG_URL=https://raw.githubusercontent.com/kyzhouhzau/BERT-NER/master/NERdata/
-ENGI_URL=https://raw.githubusercontent.com/Franck-Dernoncourt/NeuroNER/master/neuroner/data/conll2003/en/
+ENGI_URL=https://raw.githubusercontent.com/smb564/NLP/master/src/
+
 
 D_TRAIN=$(GERM_URL)deu.train
 D_VALID=$(GERM_URL)deu.testa
@@ -58,15 +60,22 @@ dataset-eng:
 
 dataset-engI:
 	mkdir -p data/conll-2003/eng
-	wget --progress=bar $(ENGI_URL)train.txt && mv train.txt data/conll-2003/eng
-	wget --progress=bar $(ENGI_URL)valid.txt && mv valid.txt dev.txt && mv dev.txt data/conll-2003/eng
-	wget --progress=bar $(ENGI_URL)test.txt && mv test.txt data/conll-2003/eng
+	wget --progress=bar $(ENGI_URL)conll2003.eng.train && mv conll2003.eng.train data/conll-2003/eng/train.txt
+	wget --progress=bar $(ENGI_URL)conll2003.eng.testa && mv conll2003.eng.testa data/conll-2003/eng/dev.txt
+	wget --progress=bar $(ENGI_URL)conll2003.eng.testb && mv conll2003.eng.testb data/conll-2003/eng/test.txt
 
 dataset-deu:
 	mkdir -p data/conll-2003/deu
 	wget --progress=bar $(D_TRAIN) && mv deu.train train.txt && mv train.txt data/conll-2003/deu
 	wget --progress=bar $(D_VALID) && mv deu.testa dev.txt && mv dev.txt data/conll-2003/deu
 	wget --progress=bar $(D_TEST) && mv deu.testb test.txt && mv test.txt data/conll-2003/deu
+
+dataset-deuI:
+	mkdir -p data/conll-2003/deu
+	wget --progress=bar $(D_TRAIN)deuutf.train && mv deuutf.train data/conll-2003/deu/train.txt
+	wget --progress=bar $(D_VALID)deuutf.testa && mv deuutf.testa data/conll-2003/deu/dev.txt
+	wget --progress=bar $(D_TEST)deuutf.testb && mv deuutf.testb data/conll-2003/deu/test.txt
+
 
 model:
 	wget https://s3.amazonaws.com/models.huggingface.co/bert/$(BERT).tar.gz
