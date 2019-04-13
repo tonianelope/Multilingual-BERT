@@ -1,3 +1,4 @@
+import csv
 import logging
 import random
 from functools import partial
@@ -196,6 +197,7 @@ def run_ner(lang:str='eng',
 
     #mlrs = [9e-6] + [5e-5/lrm**3 ,5e-5/lrm**2, 5e-5/lrm, 5e-5] + [0.003/lrm ,0.003]
     lrs = lr if not discr else learn.lr_range(slice(lr/lrm**(layers), lr))
+    results = [['epoch', 'lr', 'f1', 'val_loss', 'train_loss', 'train_losses']]
 
     if do_train:
         for epoch in range(epochs):
@@ -211,6 +213,13 @@ def run_ner(lang:str='eng',
             if one_cycle: learn.fit_one_cycle(1, lrs, moms=(0.8, 0.7))
             else: learn.fit(1, lrs)
 
+            results.append([
+                epoch, lrs,
+                learn.recorder.metrics[0][0],
+                learn.recorder.val_losses[0],
+                np.array(learn.recorder.losses).mean(),
+                learn.recorder.losses,
+            ])
             logging.info('Validation VAL')
             write_eval('Validation VAL')
             #learn.recorder.plot_losses()
@@ -226,6 +235,13 @@ def run_ner(lang:str='eng',
         res = learn.validate(test_dl, metrics=metrics)
         met_res = [f'{m.__name__}: {r}' for m, r in zip(metrics, res[1:])]
         print(f'Validation on TEST SET:\nloss {res[0]}, {met_res}')
+        results.append([
+            'val', '-', learn.recorder.metrics[0][0], learn.recorder.val_losses[0], '-','-'
+        ])
+
+    with open(logdir / (name)+'.csv', 'wb') as resultFile:
+        wr = csv.writer(resultFile, dialect='excel')
+        wr.writerows(results)
 
 if __name__ == '__main__':
     fire.Fire(run_ner)
