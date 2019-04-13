@@ -11,9 +11,6 @@ TEST=$(ENG_URL)test.txt
 
 EXEC=python run_ner.py
 
-t:
-	echo $(D_TRAIN)
-
 help:
 	$(EXEC) --help
 
@@ -42,6 +39,12 @@ run-b:
 
 apex-run:
 	$(EXEC) --batch_size=16 --epochs=1 --fp16 $(W)
+
+2bert:
+	python bert_train_data.py --train_corpus $(DIR)docs.txt --bert_model $(M) --output_dir $(DIR) --epochs_to_generate $(E) --max_seq_len 256
+
+pretrain_lm:
+	python $(FILE) --pregenerated_data $(DIR) --bert_model $(M) --output_dir pretrain --epochs $(E)  
 
 datasets:
 	make dataset-eng

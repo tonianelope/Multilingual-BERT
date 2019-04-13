@@ -35,7 +35,6 @@ def bert_layer_list(model):
 
     flm = flatten_model(model)
     print(f'Modules Len : {len(flm)}')
-
     # embedding = [0:5] layer
     ms.append(torch.nn.ModuleList(flm[0:5]))
     # encoder (12 layers) = [5:16] [16:27] ... [126:136]
@@ -43,14 +42,9 @@ def bert_layer_list(model):
     for i in range(5, 137, bert_layergroup_size):
         ms.append(torch.nn.ModuleList(flm[i: i+bert_layergroup_size]))
     # pooling layer = [137:139]
-    ms.append(torch.nn.ModuleList(flm[-6:-4]))
+    ms.append(torch.nn.ModuleList(flm[137:139]))
     # head = [-2:]
-    #ms.append(torch.nn.ModuleList(flm[-4:]))
-    print(ms)
-#    for i,m in enumerate(split_no_wd_params(ms)):
-#        print(f'model{i}')
-#        print(m)
-#
+    #ms.append(torch.nn.Sequential(flm[139:-2]+[flm[-1]]))
     return ms
 
 # this PR for ref https://github.com/fastai/fastai/commit/16a858751fc3bd37153a8ada434042f7a53df111
@@ -81,6 +75,7 @@ class PregeneratedData(Callback):
         self.dataset = data# DataLoader(data, shuffle=True, batch_size=self.batch_size)
 
     def __getitem__(self, idx:int):
+        #print(self.dataset[idx][0][0].shape,self.dataset[idx][0][2].shape,self.dataset[idx][0][4].shape)
         return self.dataset[idx]
 
     # def on_batch_begin(self, last_input, last_target, **kwargs):
@@ -165,6 +160,11 @@ class PregeneratedDataset(Dataset):
                 input_masks[i] = features.input_mask
                 lm_label_ids[i] = features.lm_label_ids
                 is_nexts[i] = features.is_next
+        
+        inlen = len(input_ids[0])
+        for x in input_ids:
+            assert len(x) == inlen
+
         assert i == num_samples - 1  # Assert that the sample count metric was true
         logging.info("Loading complete!")
         self.num_samples = num_samples
@@ -184,7 +184,7 @@ class PregeneratedDataset(Dataset):
                 torch.tensor(self.segment_ids[item].astype(np.int64)),
                 torch.tensor(self.lm_label_ids[item].astype(np.int64)),
                 torch.tensor(self.is_nexts[item].astype(np.int64))),
-                torch.tensor([]))
+                torch.tensor([0.0]))
 
 
 def main():
@@ -287,7 +287,7 @@ def main():
 
     # Prepare model
     model = BertForPreTraining.from_pretrained(args.bert_model)
-    model = torch.nn.DataParallel(model)
+    #model = torch.nn.DataParallel(model)
 
     # Prepare optimizer
     optimizer = BertAdam
@@ -303,20 +303,25 @@ def main():
     logging.info(f"  Num examples = {total_train_examples}")
     logging.info("  Batch size = %d", args.train_batch_size)
     logging.info("  Num steps = %d", num_train_optimization_steps)
+    def loss(x, y):
+    #    print(x)
+        return x
 
     learn = Learner(data, model, optimizer,
-                    loss_func=lambda x: x,
+                    loss_func=loss,
                     true_wd=False,
                     path='learn',
                     layer_groups=bert_layer_list(model),
     )
     lr= args.learning_rate
-    lrs = learn.lr_range(slice(lr/(1.3**15), lr))
+    layers = len(bert_layer_list(model))
+    lrs = learn.lr_range(slice(lr/(1.3**layers), lr))
     learn.fit_one_cycle(args.epochs, lrs, wd=1e-4)
 
-    m_name = 'Pretrained_lm_'+lang
-    m_path = learn.save(m_name, return_path=True)
-    print(f'Saved model to {m_path}')
+    savem = learn.model.module.bert if hasattr(learn.model, 'module') else learn.model.bert
+    output_model_file = args.output_dir / ("pytorch_fastai_model_"+args.bert_model+'_'+args.epochs+".bin")
+    torch.save(savem.state_dict(), str(output_model_file))
+    print(f'Saved bert to {output_model_file}')
 
 if __name__ == '__main__':
     main()
