@@ -16,7 +16,7 @@ from fastai.train import to_fp16
 from learner import (Conll_F1, OneHotCallBack, conll_f1, create_fp16_cb,
                      ner_loss_func, write_eval)
 from ner_data import VOCAB, NerDataset, idx2label, pad
-from optimizer import BertAdam
+from optimizer import BertAdam, initBertAdam
 from pytorch_pretrained_bert import BertForTokenClassification
 from torch.utils.data import DataLoader
 
@@ -155,9 +155,11 @@ def run_ner(lang:str='eng',
         path = Path(data_bunch_path)
     )
 
-    optim = BertAdam
+
 
     train_opt_steps = int(len(train_dl.dataset) / batch_size / grad_acc_steps) * epochs
+    optim = BertAdam
+    optim = partial(initBertAdam, warmup=warmup_proportion, t_total=train_opt_steps)
     f1 = partial(fbeta, beta=1, sigmoid=False)
     loss_fun = ner_loss_func
     metrics = [conll_f1, Conll_F1()]
