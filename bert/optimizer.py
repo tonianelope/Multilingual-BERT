@@ -45,8 +45,7 @@ SCHEDULES = {
 
 def initBertAdam(params, lr, warmup=-1, t_total=-1, schedule='warmup_linear',
                  betas=(0.9, 0.999), e=1e-6, weight_decay=0.01, max_grad_norm=1.0):
-    return BertAdam(params, lr, warmup, t_total, schedule,
-                 betas, e, weight_decay, max_grad_norm):
+    return BertAdam(params, lr, warmup, t_total, schedule, betas, e, weight_decay, max_grad_norm)
 
 class BertAdam(Optimizer):
     """Implements BERT version of Adam algorithm with weight decay fix.
@@ -79,13 +78,6 @@ class BertAdam(Optimizer):
         defaults = dict(lr=lr, schedule=schedule, warmup=warmup, t_total=t_total,
                         betas=betas, e=e, weight_decay=weight_decay,
                         max_grad_norm=max_grad_norm)
-        #print(params)
-        ps = set()
-        for g in params:
-            x = g['params']
-            #if not ps.isdisjoint(set(x)):
-            #    print(x)
-            ps.update(set(x))
 
         super(BertAdam, self).__init__(params, defaults)
 

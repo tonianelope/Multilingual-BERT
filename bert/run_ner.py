@@ -10,6 +10,7 @@ import fire
 import torch
 from fastai.basic_data import DataBunch, DatasetType
 from fastai.basic_train import Learner
+from fastai.callback import OptimWrapper
 from fastai.metrics import fbeta
 from fastai.torch_core import flatten_model, to_device
 from fastai.train import to_fp16
@@ -23,9 +24,6 @@ from torch.utils.data import DataLoader
 NER = 'conll-2003'
 
 def init_logger(log_dir, name):
-    log_dir = Path(log_dir)
-    log_dir.mkdir(parents=True, exist_ok=True)
-
     logging.basicConfig(filename=log_dir / (name+'.log'),
                     filemode='w',
                     format='%(asctime)s, %(message)s',
@@ -99,6 +97,9 @@ def run_ner(lang:str='eng',
 	        save:bool=False,
 ):
     name = "_".join(map(str,['Weight',task, lang, batch_size, lr, max_seq_len,do_train, do_eval]))
+    
+    log_dir = Path(log_dir)
+    log_dir.mkdir(parents=True, exist_ok=True)
     init_logger(log_dir, name)
 
     if rand_seed:
@@ -154,12 +155,19 @@ def run_ner(lang:str='eng',
         collate_fn=pad,
         path = Path(data_bunch_path)
     )
-
-
+    param_optimizer = list(model.named_parameters())
+    no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
+    optimizer_grouped_parameters = [
+        {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay': 0.01},
+        {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+    ]
 
     train_opt_steps = int(len(train_dl.dataset) / batch_size / grad_acc_steps) * epochs
-    optim = BertAdam
-    optim = partial(initBertAdam, warmup=warmup_proportion, t_total=train_opt_steps)
+    optim = BertAdam(model.parameters(),#optimizer_grouped_parameters,
+                     lr=lr,
+                     warmup=warmup_proportion,
+                     t_total=train_opt_steps)
+    #optim = partial(initBertAdam, lr=lr, warmup=warmup_proportion, t_total=train_opt_steps)
     f1 = partial(fbeta, beta=1, sigmoid=False)
     loss_fun = ner_loss_func
     metrics = [conll_f1, Conll_F1()]
@@ -178,7 +186,7 @@ def run_ner(lang:str='eng',
                               "to use distributed and fp16 training.")
         optim, dynamic=(FusedAdam, True) if not loss_scale else (FP16_Optimizer,False)
 
-    learn = Learner(data, model, optim,
+    learn = Learner(data, model, BertAdam,
                     loss_func=loss_fun,
                     metrics=metrics,
                     true_wd=False,
@@ -186,6 +194,7 @@ def run_ner(lang:str='eng',
                     layer_groups=None if not freez else model_lr_group, 
                     path='learn',
                     )
+    # learn.opt = OptimWrapper(optim)
     # load fine-tuned learner
     if tuned_learner:
         print('Loading pretrained learner: ', tuned_learner)
@@ -200,7 +209,6 @@ def run_ner(lang:str='eng',
     #mlrs = [9e-6] + [5e-5/lrm**3 ,5e-5/lrm**2, 5e-5/lrm, 5e-5] + [0.003/lrm ,0.003]
     lrs = lr if not discr else learn.lr_range(slice(lr/lrm**(layers), lr))
     results = [['epoch', 'lr', 'f1', 'val_loss', 'train_loss', 'train_losses']]
-
     if do_train:
         for epoch in range(epochs):
             if freez:
@@ -215,6 +223,7 @@ def run_ner(lang:str='eng',
             if one_cycle: learn.fit_one_cycle(1, lrs, moms=(0.8, 0.7))
             else: learn.fit(1, lrs)
 
+            print(learn.opt)
             results.append([
                 epoch, lrs,
                 learn.recorder.metrics[0][0],
@@ -241,8 +250,8 @@ def run_ner(lang:str='eng',
             'val', '-', learn.recorder.metrics[0][0], learn.recorder.val_losses[0], '-','-'
         ])
 
-    with open(logdir / (name)+'.csv', 'wb') as resultFile:
-        wr = csv.writer(resultFile, dialect='excel')
+    with open(log_dir / (name+'.csv'), 'w') as resultFile:
+        wr = csv.writer(resultFile)
         wr.writerows(results)
 
 if __name__ == '__main__':
