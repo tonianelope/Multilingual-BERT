@@ -326,7 +326,7 @@ def main():
     # Save a trained model
     logging.info("** ** * Saving fine-tuned model ** ** * ")
     model_to_save = model.module if hasattr(model, 'module') else model  # Only save the model it-self
-    output_model_file = args.output_dir / ("pytorch_model_"+args.bert_model+'_'+args.epochs+".bin")
+    output_model_file = args.output_dir / (f"pytorch_model_{args.bert_model}_{args.epochs}.bin")
     torch.save(model_to_save.bert.state_dict(), str(output_model_file))
     print(f'Saved bert to {output_model_file}')
 

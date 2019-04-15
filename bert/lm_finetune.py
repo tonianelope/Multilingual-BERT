@@ -319,7 +319,7 @@ def main():
     learn.fit_one_cycle(args.epochs, lrs, wd=1e-4)
 
     savem = learn.model.module.bert if hasattr(learn.model, 'module') else learn.model.bert
-    output_model_file = args.output_dir / ("pytorch_fastai_model_"+args.bert_model+'_'+args.epochs+".bin")
+    output_model_file = args.output_dir / (f"pytorch_fastai_model_{args.bert_model}_{args.epochs}.bin")
     torch.save(savem.state_dict(), str(output_model_file))
     print(f'Saved bert to {output_model_file}')
 

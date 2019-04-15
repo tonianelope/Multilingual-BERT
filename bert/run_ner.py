@@ -95,8 +95,9 @@ def run_ner(lang:str='eng',
             do_train:str=False,
             do_eval:str=False,
 	        save:bool=False,
+            name:str='ner',
 ):
-    name = "_".join(map(str,['Weight',task, lang, batch_size, lr, max_seq_len,do_train, do_eval]))
+    name = "_".join(map(str,[name,task, lang, batch_size, lr, max_seq_len,do_train, do_eval]))
     
     log_dir = Path(log_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -170,7 +171,7 @@ def run_ner(lang:str='eng',
     #optim = partial(initBertAdam, lr=lr, warmup=warmup_proportion, t_total=train_opt_steps)
     f1 = partial(fbeta, beta=1, sigmoid=False)
     loss_fun = ner_loss_func
-    metrics = [conll_f1, Conll_F1()]
+    metrics = [Conll_F1()]
     fp16_cb_fns = partial(create_fp16_cb,
                           train_opt_steps = train_opt_steps,
                           gradient_accumulation_steps = grad_acc_steps,
@@ -194,7 +195,7 @@ def run_ner(lang:str='eng',
                     layer_groups=None if not freez else model_lr_group, 
                     path='learn',
                     )
-    # learn.opt = OptimWrapper(optim)
+    learn.opt = OptimWrapper(optim)
     # load fine-tuned learner
     if tuned_learner:
         print('Loading pretrained learner: ', tuned_learner)
@@ -250,7 +251,7 @@ def run_ner(lang:str='eng',
             'val', '-', learn.recorder.metrics[0][0], learn.recorder.val_losses[0], '-','-'
         ])
 
-    with open(log_dir / (name+'.csv'), 'w') as resultFile:
+    with open(log_dir / (name+'.csv'), 'a') as resultFile:
         wr = csv.writer(resultFile)
         wr.writerows(results)
 
