@@ -224,7 +224,6 @@ def run_ner(lang:str='eng',
             if one_cycle: learn.fit_one_cycle(1, lrs, moms=(0.8, 0.7))
             else: learn.fit(1, lrs)
 
-            print(learn.opt)
             results.append([
                 epoch, lrs,
                 learn.recorder.metrics[0][0],
@@ -248,7 +247,7 @@ def run_ner(lang:str='eng',
         met_res = [f'{m.__name__}: {r}' for m, r in zip(metrics, res[1:])]
         print(f'Validation on TEST SET:\nloss {res[0]}, {met_res}')
         results.append([
-            'val', '-', learn.recorder.metrics[0][0], learn.recorder.val_losses[0], '-','-'
+            'val', '-', res[1], res[0], '-','-'
         ])
 
     with open(log_dir / (name+'.csv'), 'a') as resultFile:
