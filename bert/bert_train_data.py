@@ -44,17 +44,19 @@ class DocumentDatabase:
 
     def sample_doc(self, current_idx, sentence_weighted=True):
         # Uses the current iteration counter to ensure we don't sample the same doc twice
-        if sentence_weighted:
-            # With sentence weighting, we sample docs proportionally to their sentence length
-            if self.doc_cumsum is None or len(self.doc_cumsum) != len(self.doc_lengths):
-                self._precalculate_doc_weights()
-            rand_start = self.doc_cumsum[current_idx]
-            rand_end = rand_start + self.cumsum_max - self.doc_lengths[current_idx]
-            sentence_index = randint(rand_start, rand_end) % self.cumsum_max
-            sampled_doc_index = np.searchsorted(self.doc_cumsum, sentence_index, side='right')
-        else:
-            # If we don't use sentence weighting, then every doc has an equal chance to be chosen
-            sampled_doc_index = current_idx + randint(1, len(self.doc_lengths)-1)
+        sampled_doc_index = current_idx
+        while sampled_doc_index == current_idx:
+            if sentence_weighted:
+                # With sentence weighting, we sample docs proportionally to their sentence length
+                if self.doc_cumsum is None or len(self.doc_cumsum) != len(self.doc_lengths):
+                    self._precalculate_doc_weights()
+                rand_start = self.doc_cumsum[current_idx]
+                rand_end = rand_start + self.cumsum_max - self.doc_lengths[current_idx]
+                sentence_index = randint(rand_start, rand_end) % self.cumsum_max
+                sampled_doc_index = np.searchsorted(self.doc_cumsum, sentence_index, side='right')
+            else:
+                # If we don't use sentence weighting, then every doc has an equal chance to be chosen
+                sampled_doc_index = current_idx + randint(1, len(self.doc_lengths)-1)
         assert sampled_doc_index != current_idx
         if self.reduce_memory:
             return self.document_shelf[str(sampled_doc_index)]
@@ -234,7 +236,7 @@ def main():
     parser.add_argument("--output_dir", type=Path, required=True)
     parser.add_argument("--bert_model", type=str, required=True,
                         choices=["bert-base-uncased", "bert-large-uncased", "bert-base-cased",
-                                 "bert-base-multilingual", "bert-base-chinese"])
+                                 "bert-base-multilingual-cased", "bert-base-chinese"])
     parser.add_argument("--do_lower_case", action="store_true")
 
     parser.add_argument("--reduce_memory", action="store_true",
