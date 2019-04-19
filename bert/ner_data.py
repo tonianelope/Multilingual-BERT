@@ -91,9 +91,9 @@ class NerDataset(Dataset):
 
         seqlen = len(y)
         segment_ids = [0] * seqlen
-        x_mask = is_heads
+        x_mask = [1] * seqlen
        # y_mask = [0] + is_heads[1:-1] + [0]
-        y_mask =is_labels
+        y_mask = is_heads
         assert_str = f"len(x)={len(x)}, len(y)={len(y)}, len(x_mask)={len(x_mask)}, len(y_mask)={len(y_mask)},"
         assert len(x)==len(y)==len(x_mask)==len(y_mask), assert_str
         # print(" ".join(text))
@@ -102,7 +102,7 @@ class NerDataset(Dataset):
         # #print(y)
 
         xb = (x, segment_ids, x_mask)
-        yb = (one_hot_labels, y, x_mask)
+        yb = (one_hot_labels, y, y_mask)
 
         return xb, yb
 
@@ -159,7 +159,7 @@ def pad(batch, bertmax=512):
         label_mask.append( pad_fun(y[2]))
         one_hot_labels.append(np.eye(len(label2idx), dtype=np.float32)[label_id])
 
-    return ( ( t(input_ids),),# t(segment_ids), t(input_mask))  ,
+    return ( ( t(input_ids), t(segment_ids), t(input_mask))  ,
              ( t(one_hot_labels), t(label_ids), t(label_mask).byte()) )
 
 # TODO compare difference between broken up tokens (e.g. predict and not predict)

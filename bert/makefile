@@ -46,7 +46,7 @@ apex-run:
 	python bert_train_data.py --train_corpus $(DIR)docs.txt --bert_model $(M) --output_dir $(DIR) --epochs_to_generate $(E) --max_seq_len 256
 
 pretrain_lm:
-	python $(FILE) --pregenerated_data $(DIR) --bert_model $(M) --output_dir pretrain --epochs $(E)  
+	python $(FILE) --pregenerated_data $(DIR) --bert_model $(M) --output_dir pretrain --epochs $(E) --train_batch_size 16
 
 datasets:
 	make dataset-eng
@@ -59,10 +59,10 @@ dataset-eng:
 	wget --progress=bar $(TEST) && mv test.txt data/conll-2003/eng
 
 dataset-engI:
-	mkdir -p data/conll-2003/eng
-	wget --progress=bar $(ENGI_URL)conll2003.eng.train && mv conll2003.eng.train data/conll-2003/eng/train.txt
-	wget --progress=bar $(ENGI_URL)conll2003.eng.testa && mv conll2003.eng.testa data/conll-2003/eng/dev.txt
-	wget --progress=bar $(ENGI_URL)conll2003.eng.testb && mv conll2003.eng.testb data/conll-2003/eng/test.txt
+	mkdir -p data/conll-2003/ieng
+	wget --progress=bar $(ENGI_URL)conll2003.eng.train && mv conll2003.eng.train data/conll-2003/ieng/train.txt
+	wget --progress=bar $(ENGI_URL)conll2003.eng.testa && mv conll2003.eng.testa data/conll-2003/ieng/dev.txt
+	wget --progress=bar $(ENGI_URL)conll2003.eng.testb && mv conll2003.eng.testb data/conll-2003/ieng/test.txt
 
 dataset-deu:
 	mkdir -p data/conll-2003/deu
