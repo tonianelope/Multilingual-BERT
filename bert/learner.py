@@ -55,6 +55,14 @@ def ner_loss_func(out, *ys, cross_ent=False):
     #print(loss)
     return loss
 
+def tf_loss_func(out, *ys):
+    ys = to_device(ys, torch.cuda.current_device())
+    one_hot_labels, labels, attention_mask = ys
+    p = torch.nn.functional.softmax(out, -1)
+    losses = -torch.log(torch.sum(one_hot_labels * p, -1))
+    losses = torch.masked_select(losses, attention_mask)
+    return torch.sum(losses)
+
 class OneHotCallBack(Callback):
 
     def __init__(self, func):

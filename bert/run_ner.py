@@ -15,7 +15,7 @@ from fastai.metrics import fbeta
 from fastai.torch_core import flatten_model, to_device
 from fastai.train import to_fp16
 from learner import (Conll_F1, OneHotCallBack, conll_f1, create_fp16_cb,
-                     ner_loss_func, write_eval)
+                     ner_loss_func, tf_loss_func, write_eval)
 from ner_data import VOCAB, NerDataset, idx2label, pad
 from optimizer import BertAdam, initBertAdam
 from pytorch_pretrained_bert import BertForTokenClassification
@@ -76,9 +76,8 @@ def run_ner(lang:str='eng',
             batch_size:int=1,
             lr:float=5e-5,
             epochs:int=1,
-            trainset:str='data/conll-2003/',
-            devset:str='data/conll-2003/',
-            testset:str='data/conll-2003/',
+            dataset:str='data/conll-2003/',
+            lossf:str='cross',
             max_seq_len:int=128,
             do_lower_case:bool=False,
             warmup_proportion:float=0.1,
@@ -110,15 +109,15 @@ def run_ner(lang:str='eng',
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(rand_seed)
     if grad_acc_steps < 1:
-        raise ValueError(f"""Invalid grad_acc_steps parameter:
+x        raise ValueError(f"""Invalid grad_acc_steps parameter:
                          {grad_acc_steps}, should be >= 1""")
 
     # TODO proper training with grad accum step??
     batch_size //= grad_acc_steps
 
-    trainset += lang + '/train.txt'
-    devset += lang + '/dev.txt'
-    testset += lang + '/test.txt'
+    trainset = dataset + lang + '/train.txt'
+    devset = dataset +lang + '/dev.txt'
+    testset = dataset + lang + '/test.txt'
 
     bert_model = 'bert-base-cased' if lang=='eng' else 'bert-base-multilingual-cased'
     print(f'Lang: {lang}\nModel: {bert_model}\nRun: {name}')
@@ -170,7 +169,7 @@ def run_ner(lang:str='eng',
                      t_total=train_opt_steps)
     #optim = partial(initBertAdam, lr=lr, warmup=warmup_proportion, t_total=train_opt_steps)
     f1 = partial(fbeta, beta=1, sigmoid=False)
-    loss_fun = ner_loss_func
+    loss_fun = ner_loss_func if lossf=='cross' else tf_loss_func
     metrics = [Conll_F1()]
     fp16_cb_fns = partial(create_fp16_cb,
                           train_opt_steps = train_opt_steps,
