@@ -1,6 +1,6 @@
 GERM_URL=https://raw.githubusercontent.com/Nidhi-K/Natural-Language-Processing-Projects/master/Sequential%20CRF%20for%20NER/data/
 GERMI_URL=https://raw.githubusercontent.com/MaviccPRP/ger_ner_evals/master/corpora/conll2003/
-ENG_URL=https://raw.githubusercontent.com/kyzhouhzau/BERT-NER/master/NERdata/
+ENG_URL=https://raw.githubusercontent.com/kyzhouhzau/BERT-NER/master/data/
 ENGI_URL=https://raw.githubusercontent.com/smb564/NLP/master/src/
 
 
@@ -59,10 +59,10 @@ dataset-eng:
 	wget --progress=bar $(TEST) && mv test.txt data/conll-2003/eng
 
 dataset-engI:
-	mkdir -p data/conll-2003/ieng
-	wget --progress=bar $(ENGI_URL)conll2003.eng.train && mv conll2003.eng.train data/conll-2003/ieng/train.txt
-	wget --progress=bar $(ENGI_URL)conll2003.eng.testa && mv conll2003.eng.testa data/conll-2003/ieng/dev.txt
-	wget --progress=bar $(ENGI_URL)conll2003.eng.testb && mv conll2003.eng.testb data/conll-2003/ieng/test.txt
+	mkdir -p data/conll-2003/eng
+	wget --progress=bar $(ENGI_URL)conll2003.eng.train && mv conll2003.eng.train data/conll-2003/eng/train.txt
+	wget --progress=bar $(ENGI_URL)conll2003.eng.testa && mv conll2003.eng.testa data/conll-2003/eng/dev.txt
+	wget --progress=bar $(ENGI_URL)conll2003.eng.testb && mv conll2003.eng.testb data/conll-2003/eng/test.txt
 
 dataset-deu:
 	mkdir -p data/conll-2003/deu

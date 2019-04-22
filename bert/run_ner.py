@@ -77,7 +77,7 @@ def run_ner(lang:str='eng',
             lr:float=5e-5,
             epochs:int=1,
             dataset:str='data/conll-2003/',
-            lossf:str='cross',
+            loss:str='cross',
             max_seq_len:int=128,
             do_lower_case:bool=False,
             warmup_proportion:float=0.1,
@@ -95,8 +95,9 @@ def run_ner(lang:str='eng',
             do_eval:str=False,
 	        save:bool=False,
             name:str='ner',
+            mask:tuple=('s','s'),
 ):
-    name = "_".join(map(str,[name,task, lang, batch_size, lr, max_seq_len,do_train, do_eval]))
+    name = "_".join(map(str,[name,task, lang, mask[0],mask[1], loss, batch_size, lr, max_seq_len,do_train, do_eval]))
     
     log_dir = Path(log_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -109,7 +110,7 @@ def run_ner(lang:str='eng',
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(rand_seed)
     if grad_acc_steps < 1:
-x        raise ValueError(f"""Invalid grad_acc_steps parameter:
+        raise ValueError(f"""Invalid grad_acc_steps parameter:
                          {grad_acc_steps}, should be >= 1""")
 
     # TODO proper training with grad accum step??
@@ -126,23 +127,24 @@ x        raise ValueError(f"""Invalid grad_acc_steps parameter:
     model = torch.nn.DataParallel(model)
     model_lr_group = bert_layer_list(model)
     layers = len(model_lr_group) 
+    kwargs = {'max_seq_len':max_seq_len, 'ds_size':ds_size, 'mask':mask}
 
     train_dl = DataLoader(
-        dataset=NerDataset(trainset,bert_model,max_seq_len=max_seq_len, ds_size=ds_size),
+        dataset=NerDataset(trainset,bert_model,train=True, **kwargs),
         batch_size=batch_size,
         shuffle=True,
-        collate_fn=pad
+        collate_fn=partial(pad, train=True)
     )
 
     dev_dl = DataLoader(
-        dataset=NerDataset(devset, bert_model,max_seq_len=max_seq_len, ds_size=ds_size),
+        dataset=NerDataset(devset, bert_model, **kwargs),
         batch_size=batch_size,
         shuffle=False,
         collate_fn=pad
     )
 
     test_dl = DataLoader(
-        dataset=NerDataset(testset, bert_model,max_seq_len=max_seq_len, ds_size=ds_size),
+        dataset=NerDataset(testset, bert_model, **kwargs),
         batch_size=batch_size,
         shuffle=False,
         collate_fn=pad
@@ -169,7 +171,7 @@ x        raise ValueError(f"""Invalid grad_acc_steps parameter:
                      t_total=train_opt_steps)
     #optim = partial(initBertAdam, lr=lr, warmup=warmup_proportion, t_total=train_opt_steps)
     f1 = partial(fbeta, beta=1, sigmoid=False)
-    loss_fun = ner_loss_func if lossf=='cross' else tf_loss_func
+    loss_fun = ner_loss_func if loss=='cross' else partial(ner_loss_func, zero=True)
     metrics = [Conll_F1()]
     fp16_cb_fns = partial(create_fp16_cb,
                           train_opt_steps = train_opt_steps,

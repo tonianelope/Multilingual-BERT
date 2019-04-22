@@ -26,7 +26,9 @@ class NerDataset(Dataset):
     max_seq_len:  max length for examples, shorter ones are padded longer discarded
     ds_size:      for debug peruses: truncates the dataset to ds_size examples
     """
-    def __init__(self, filepath, bert_model, max_seq_len=512, ds_size=None):
+    def __init__(self, filepath, bert_model, max_seq_len=512, ds_size=None, train=False, mask=('s','s')):
+        self.xmask, self.ymask = mask
+        self.train= train
         self.max_seq_len = max_seq_len
         self.tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=False)
 
@@ -42,7 +44,7 @@ class NerDataset(Dataset):
             tags = ([line.split()[-1] for line in entry.splitlines()]) #tags.split()
             #tokens = [t for w in words for t in self.tokenizer.tokenize(w)] 
             # ['-DOCSTART-']
-            #if words[0]=='-DOCSTART-': continue
+            if words[0]=='-DOCSTART-': continue
             # account for [cls] [sep] token
             #if (len(tokens)+2) > max_seq_len:
             #    skipped +=1
@@ -55,8 +57,8 @@ class NerDataset(Dataset):
         self.labels, self.sents = labels, sents
         print()
         print(filepath)
-        print(f'lines {size} sents {org_size}')
-        print(f'Truncated examples: {(skipped/org_size)*100:.2}% => {skipped}/{org_size} ')
+        print(f'lines {size} sents {org_size}	style: x={self.xmask} y={self.ymask}')
+       # print(f'Truncated examples: {(skipped/org_size)*100:.2}% => {skipped}/{org_size} ')
 
     def __len__(self):
         return len(self.sents)
@@ -75,7 +77,7 @@ class NerDataset(Dataset):
 
             t = [t] + [PAD] * (len(tokens) - 1)  # <PAD>: no decision
             yy = [label2idx[each] for each in t]  # (T,)
-            is_label = [1] if yy[0]>1 else [0]
+            is_label = [1] if yy[0]>0 else [0]
             is_label += [0] * (len(tokens)-1)
 
             #if self.max_seq_len < len(x) + len(xx):
@@ -91,9 +93,10 @@ class NerDataset(Dataset):
 
         seqlen = len(y)
         segment_ids = [0] * seqlen
-        x_mask = [1] * seqlen
-       # y_mask = [0] + is_heads[1:-1] + [0]
-        y_mask = is_heads
+        seq_mask = [1] * seqlen
+        masks = {'s':seq_mask, 'h':is_heads, 'l': is_labels}
+        x_mask = masks[self.xmask]
+        y_mask = masks[self.ymask]
         assert_str = f"len(x)={len(x)}, len(y)={len(y)}, len(x_mask)={len(x_mask)}, len(y_mask)={len(y_mask)},"
         assert len(x)==len(y)==len(x_mask)==len(y_mask), assert_str
         # print(" ".join(text))
@@ -102,6 +105,7 @@ class NerDataset(Dataset):
         # #print(y)
 
         xb = (x, segment_ids, x_mask)
+        #if self.train: xb = (x, segment_ids, y_mask, y)
         yb = (one_hot_labels, y, y_mask)
 
         return xb, yb
@@ -139,7 +143,7 @@ class NerDataset(Dataset):
         bert_labels.append( PAD )
         return bert_tokens, bert_labels
 
-def pad(batch, bertmax=512):
+def pad(batch, bertmax=512, train=False):
     seqlens = [len(x[0]) for x,_ in batch]
     maxlen = np.array(seqlens).max()
 
@@ -158,9 +162,12 @@ def pad(batch, bertmax=512):
         label_ids.append(label_id)
         label_mask.append( pad_fun(y[2]))
         one_hot_labels.append(np.eye(len(label2idx), dtype=np.float32)[label_id])
-
-    return ( ( t(input_ids), t(segment_ids), t(input_mask))  ,
-             ( t(one_hot_labels), t(label_ids), t(label_mask).byte()) )
+    x = ( t(input_ids), t(segment_ids), t(input_mask))
+    if len(batch[0][0])>3: x = ( t(input_ids), t(segment_ids), t(input_mask), t(label_ids))
+    y =  ( t(one_hot_labels), t(label_ids), t(label_mask).byte()) 
+    #print('pad', train, len(x))
+    return x,y 
+            
 
 # TODO compare difference between broken up tokens (e.g. predict and not predict)
 

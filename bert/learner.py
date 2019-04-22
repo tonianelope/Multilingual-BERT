@@ -34,34 +34,63 @@ def write_log(msg):
         f.write(msg)
         f.write('\n')
 
-def ner_loss_func(out, *ys, cross_ent=False):
+def ner_loss_func(out, *ys, zero=False): 
+    #print(out.size(),out)
     ys = to_device(ys, torch.cuda.current_device())
-    if out.shape<=torch.Size([1]):
-        loss = out
+    if out.size()<=torch.Size([2]):
+     #   print('train')
+        loss = out.mean()
     else:
-        # if using weights need to convert to cuda!!!
-        ws = to_device(WEIGHTS, torch.cuda.current_device())
-        #loss_fct = torch.nn.CrossEntropyLoss(weight=ws)#, ignore_index=0)
-        loss_fct = torch.nn.CrossEntropyLoss(ignore_index=0)
-        _, labels, attention_mask = ys
+      #  print('val')
+        loss_fct = torch.nn.CrossEntropyLoss(reduction='none')
+        if zero:
+            loss_fct = torch.nn.CrossEntropyLoss(ignore_index=0 , reduction='none')
+        #loss_fct = torch.nn.LogSoftmax(-1)
+        one, labels, attention_mask = ys
         # Only keep active parts of the loss
         if attention_mask is not None:
             active_loss = attention_mask.view(-1) == 1
             active_logits = out.view(-1, len(VOCAB))[active_loss]
+           # active_labels = one.view(-1, len(VOCAB))[active_loss]
             active_labels = labels.view(-1)[active_loss]
             loss = loss_fct(active_logits, active_labels)
+            #print('o',out)
+            #print('a',active_logits)
+            #print('l',active_labels)
+            #
+            #print('losses',loss)
+            logging.info(active_labels)
+            logging.info(loss)
+            l = loss.sum(-1)
+            logging.info(l)
+            loss = loss.mean(-1)
+            logging.info(loss)
         else:
             loss = loss_fct(out.view(-1, len(VOCAB)), labels.view(-1))
-    #print(loss)
+       # loss = loss_fct(out.view(-1, len(VOCAB)))
+       # loss = -torch.sum(loss*labels.view(-1))
+       # loss = torch.masked_select(loss, attention_mask)
+       # loss = torch.mean(loss)
     return loss
 
 def tf_loss_func(out, *ys):
     ys = to_device(ys, torch.cuda.current_device())
-    one_hot_labels, labels, attention_mask = ys
+    one_hot_labels, labels, attention_mask = ys    
     p = torch.nn.functional.softmax(out, -1)
+    ex = torch.exp(out)
+    #print('out',out[0][0])
+    #print('l',labels[0])
+    #out = torch.nn.functional.softmax(out, -1)
+    #print(out[1][0])
+    #p = torch.nn.functional.log_softmax(out, -1)
     losses = -torch.log(torch.sum(one_hot_labels * p, -1))
+    # part = torch.log(torch.sum(ex, 1))
+    
+    #losses = -(torch.sum(one_hot_labels * p, -1))
     losses = torch.masked_select(losses, attention_mask)
-    return torch.sum(losses)
+    #return torch.sum(losses)
+    print('losses',losses)
+    return torch.mean(losses)
 
 class OneHotCallBack(Callback):
 
@@ -179,7 +208,7 @@ class Conll_F1(Callback):
         self.name = 'Total F1'
 
     def on_epoch_begin(self, **kwargs):
-        self.correct, self.predict, self.true = 0,0,0
+        self.correct, self.predict, self.true, self.predict2 = 0,0,0,0
         global i 
         i = 0
 
@@ -187,13 +216,14 @@ class Conll_F1(Callback):
         pred = last_output.argmax(-1)
         true = to_device(last_target, torch.cuda.current_device())
         _, label_ids, label_mask = true
-        mask = label_mask.view(-1)
-        pred = pred.view(-1)
-        labels = label_ids.view(-1)
-        mask = label_mask.view(-1)==1 
-        y_pred = pred.view(-1)[mask] 
-        y_true = label_ids.view(-1)[mask]
-        self.predict += len(y_pred[y_pred>1])
+        y_pred = pred.view(-1) 
+        y_true = label_ids.view(-1)
+        self.predict2 += len(y_pred[y_pred>1])
+        preds = y_pred[y_true!=0]
+        logging.info(y_true)
+        logging.info(y_pred)
+        logging.info(preds)
+        self.predict += len(preds[preds>1])
         self.true += len(y_true[y_true>1])
         self.correct +=(np.logical_and(y_true==y_pred, y_true>1)).sum().item()
 
@@ -202,6 +232,7 @@ class Conll_F1(Callback):
         prec = self.correct / (self.predict + eps)
         rec = self.correct / (self.true + eps)
         logging.info(f"====epoch {kwargs['epoch']}====")
+        logging.info(f'num pred2: {self.predict2}')
         logging.info(f'num pred: {self.predict}')
         logging.info(f'num corr: {self.correct}')
         logging.info(f'num true: {self.true}')
