@@ -87,9 +87,12 @@ def run_ner(lang:str='eng',
             loss_scale:float=None,
             ds_size:int=None,
             data_bunch_path:str='data/conll-2003/db',
+            bertAdam:bool=False,
             freez:bool=False,
             one_cycle:bool=False,
             discr:bool=False,
+            lrm:int=2.6,
+            div:int=None,
             tuned_learner:str=None,
             do_train:str=False,
             do_eval:str=False,
@@ -196,7 +199,8 @@ def run_ner(lang:str='eng',
                     layer_groups=None if not freez else model_lr_group, 
                     path='learn',
                     )
-    learn.opt = OptimWrapper(optim)
+    if bertAdam: learn.opt = OptimWrapper(optim)
+    else: print("No Bert Adam")
     # load fine-tuned learner
     if tuned_learner:
         print('Loading pretrained learner: ', tuned_learner)
@@ -206,8 +210,8 @@ def run_ner(lang:str='eng',
 
     # learn.lr_find()
     # learn.recorder.plot(skip_end=15)
-    lrm = 1.3
-
+    if div:
+        layers=div
     #mlrs = [9e-6] + [5e-5/lrm**3 ,5e-5/lrm**2, 5e-5/lrm, 5e-5] + [0.003/lrm ,0.003]
     lrs = lr if not discr else learn.lr_range(slice(lr/lrm**(layers), lr))
     results = [['epoch', 'lr', 'f1', 'val_loss', 'train_loss', 'train_losses']]
@@ -239,10 +243,17 @@ def run_ner(lang:str='eng',
             #met_res = [f'{m.__name__}: {r}' for m, r in zip(metrics, res[1:])]
             #print(f'VALIDATION DEV SET:\nloss {res[0]}, {met_res}')
 
+            if epoch==2 and do_eval:
+                res = learn.validate(test_dl, metrics=metrics)
+                met_res = [f'{m.__name__}: {r}' for m, r in zip(metrics, res[1:])]
+                print(f'Validation on TEST SET:\nloss {res[0]}, {met_res}')
+                results.append([
+                    'val', '-', res[1], res[0], '-','-'
+                ])
             if save:
-                m_path = learn.save(f"{name}_{epoch}_model", return_path=True)
+                m_path = learn.save(f"{lang}_{epoch}_model", return_path=True)
                 print(f'Saved model to {m_path}')
-
+    if save: learn.export(f'{lang}.pkl')
     if do_eval:
         res = learn.validate(test_dl, metrics=metrics)
         met_res = [f'{m.__name__}: {r}' for m, r in zip(metrics, res[1:])]

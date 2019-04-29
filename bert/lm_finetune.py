@@ -211,7 +211,7 @@ def main():
                         default=1,
                         help="Number of updates steps to accumulate before performing a backward/update pass.")
     parser.add_argument("--train_batch_size",
-                        default=32,
+                        default=16,
                         type=int,
                         help="Total batch size for training.")
     parser.add_argument('--fp16',
@@ -314,8 +314,14 @@ def main():
     )
     lr= args.learning_rate
     layers = len(bert_layer_list(model))
-    lrs = learn.lr_range(slice(lr/(1.3**layers), lr))
-    learn.fit_one_cycle(args.epochs, lrs, wd=1e-4)
+    lrs = learn.lr_range(slice(lr/(2.6**4), lr))
+    for epoch in range(args.epochs):
+        learn.fit_one_cycle(1, lrs, wd=0.01)
+        if epoch == args.epochs//2: 
+            savem = learn.model.module.bert if hasattr(learn.model, 'module') else learn.model.bert
+            output_model_file = args.output_dir / (f"pytorch_fastai_model_{args.bert_model}_{epoch}.bin")
+            torch.save(savem.state_dict(), str(output_model_file))
+            print(f'Saved bert to {output_model_file}')
 
     savem = learn.model.module.bert if hasattr(learn.model, 'module') else learn.model.bert
     output_model_file = args.output_dir / (f"pytorch_fastai_model_{args.bert_model}_{args.epochs}.bin")

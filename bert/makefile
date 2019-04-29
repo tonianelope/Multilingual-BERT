@@ -59,10 +59,10 @@ dataset-eng:
 	wget --progress=bar $(TEST) && mv test.txt data/conll-2003/eng
 
 dataset-engI:
-	mkdir -p data/conll-2003/eng
-	wget --progress=bar $(ENGI_URL)conll2003.eng.train && mv conll2003.eng.train data/conll-2003/eng/train.txt
-	wget --progress=bar $(ENGI_URL)conll2003.eng.testa && mv conll2003.eng.testa data/conll-2003/eng/dev.txt
-	wget --progress=bar $(ENGI_URL)conll2003.eng.testb && mv conll2003.eng.testb data/conll-2003/eng/test.txt
+	mkdir -p data/conll-2003-I/eng
+	wget --progress=bar $(ENGI_URL)conll2003.eng.train && mv conll2003.eng.train data/conll-2003-I/eng/train.txt
+	wget --progress=bar $(ENGI_URL)conll2003.eng.testa && mv conll2003.eng.testa data/conll-2003-I/eng/dev.txt
+	wget --progress=bar $(ENGI_URL)conll2003.eng.testb && mv conll2003.eng.testb data/conll-2003-I/eng/test.txt
 
 dataset-deu:
 	mkdir -p data/conll-2003/deu
@@ -71,10 +71,10 @@ dataset-deu:
 	wget --progress=bar $(D_TEST) && mv deu.testb test.txt && mv test.txt data/conll-2003/deu
 
 dataset-deuI:
-	mkdir -p data/conll-2003/deu
-	wget --progress=bar $(D_TRAIN)deuutf.train && mv deuutf.train data/conll-2003/deu/train.txt
-	wget --progress=bar $(D_VALID)deuutf.testa && mv deuutf.testa data/conll-2003/deu/dev.txt
-	wget --progress=bar $(D_TEST)deuutf.testb && mv deuutf.testb data/conll-2003/deu/test.txt
+	mkdir -p data/conll-2003-I/deu
+	wget --progress=bar $(GERMI_URL)deuutf.train && mv deuutf.train data/conll-2003-I/deu/train.txt
+	wget --progress=bar $(GERMI_URL)deuutf.testa && mv deuutf.testa data/conll-2003-I/deu/dev.txt
+	wget --progress=bar $(GERMI_URL)deu.testb && mv deu.testb data/conll-2003-I/deu/test.txt
 
 
 model:
