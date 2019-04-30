@@ -25,6 +25,7 @@ class NerDataset(Dataset):
     tokenizer:    default is BertTokenizer from pytorch pretrained bert
     max_seq_len:  max length for examples, shorter ones are padded longer discarded
     ds_size:      for debug peruses: truncates the dataset to ds_size examples
+    mask:         experiment with the masking type mask[0] is the input mask, mask[1] the label mask
     """
     def __init__(self, filepath, bert_model, max_seq_len=512, ds_size=None, train=False, mask=('s','s')):
         self.xmask, self.ymask = mask
@@ -42,8 +43,7 @@ class NerDataset(Dataset):
         for entry in data:
             words = [line.split()[0] for line in entry.splitlines()] #words.split()
             tags = ([line.split()[-1] for line in entry.splitlines()]) #tags.split()
-            #tokens = [t for w in words for t in self.tokenizer.tokenize(w)] 
-            # ['-DOCSTART-']
+
             if words[0]=='-DOCSTART-': continue
             # account for [cls] [sep] token
             #if (len(tokens)+2) > max_seq_len:
@@ -58,7 +58,7 @@ class NerDataset(Dataset):
         print()
         print(filepath)
         print(f'lines {size} sents {org_size}	style: x={self.xmask} y={self.ymask}')
-       # print(f'Truncated examples: {(skipped/org_size)*100:.2}% => {skipped}/{org_size} ')
+        # print(f'Truncated examples: {(skipped/org_size)*100:.2}% => {skipped}/{org_size} ')
 
     def __len__(self):
         return len(self.sents)
@@ -66,9 +66,10 @@ class NerDataset(Dataset):
     def __getitem__(self, index):
         text, labels = self.sents[index], self.labels[index]
 
-        # We give credits only to the first piece.
-        x, y = [], [] # list of ids
-        is_heads, is_labels = [], [] # list. 1: the token is the first piece of a word (see paper and wordpiece tokenization)
+        x, y = [], []
+        # is heads counts the words (disregarding worpiece sub tokens)
+        is_heads, is_labels = [], []
+
         for w, t in zip(text, labels):
             tokens = self.tokenizer.tokenize(w) if w not in ("[CLS]", "[SEP]") else [w]
             xx = self.tokenizer.convert_tokens_to_ids(tokens)
@@ -79,10 +80,6 @@ class NerDataset(Dataset):
             yy = [label2idx[each] for each in t]  # (T,)
             is_label = [1] if yy[0]>0 else [0]
             is_label += [0] * (len(tokens)-1)
-
-            #if self.max_seq_len < len(x) + len(xx):
-                #print('Too long example')
-           #     return self.__getitem__(index+1)
 
             x.extend(xx)
             y.extend(yy)
@@ -99,51 +96,14 @@ class NerDataset(Dataset):
         y_mask = masks[self.ymask]
         assert_str = f"len(x)={len(x)}, len(y)={len(y)}, len(x_mask)={len(x_mask)}, len(y_mask)={len(y_mask)},"
         assert len(x)==len(y)==len(x_mask)==len(y_mask), assert_str
-        # print(" ".join(text))
-        # print(" ".join(labels))
-        # print(" ".join(self.tokenizer.convert_ids_to_tokens(x)))
-        # #print(y)
 
         xb = (x, segment_ids, x_mask)
-        #if self.train: xb = (x, segment_ids, y_mask, y)
         yb = (one_hot_labels, y, y_mask)
 
         return xb, yb
 
-
-    def get_bert_tl(self, index):
-        "Convert a list of tokens and their corresponding labels"
-        text, labels = self.sents[index], self.labels[index]
-        bert_tokens = [ "[CLS]" ]
-        bert_labels = [ PAD ]
-
-        orig_tokens = str(text).split()
-        labels = labels.split()
-        assert len(orig_tokens) == len(labels)
-        prev_label = ""
-
-        for i, (orig_token, label) in enumerate(zip(orig_tokens, labels)):
-            prefix = ''
-            if label != 'O':
-                label = label.split("-")[1]
-                prefix = 'I-' if label==prev_label else 'B-'
-            prev_label = label
-            cur_tokens = self.tokenizer.tokenize(orig_token)
-            if not cur_tokens: logging.info(orig_token)
-            cur_labels = [f'{prefix}{label}']+[PAD]*(len(cur_tokens)-1)
-
-            # TODO log to long examples
-            if self.max_seq_len - 1 < len(bert_tokens) + len(cur_tokens):
-                break
-
-            bert_tokens.extend(cur_tokens)
-            bert_labels.extend(cur_labels)
-
-        bert_tokens.append("[SEP]")
-        bert_labels.append( PAD )
-        return bert_tokens, bert_labels
-
 def pad(batch, bertmax=512, train=False):
+    ''' Function to pad samples in batch to the same length '''
     seqlens = [len(x[0]) for x,_ in batch]
     maxlen = np.array(seqlens).max()
 
@@ -163,13 +123,11 @@ def pad(batch, bertmax=512, train=False):
         label_mask.append( pad_fun(y[2]))
         one_hot_labels.append(np.eye(len(label2idx), dtype=np.float32)[label_id])
     x = ( t(input_ids), t(segment_ids), t(input_mask))
+    # add labels to x if they are used in the sample.
     if len(batch[0][0])>3: x = ( t(input_ids), t(segment_ids), t(input_mask), t(label_ids))
     y =  ( t(one_hot_labels), t(label_ids), t(label_mask).byte()) 
-    #print('pad', train, len(x))
-    return x,y 
-            
 
-# TODO compare difference between broken up tokens (e.g. predict and not predict)
+    return x,y
 
 # from https://github.com/sberbank-ai/ner-bert/blob/master/examples/conll-2003.ipynb
 def read_conll_data(input_file:str):
@@ -198,20 +156,24 @@ def read_conll_data(input_file:str):
         return lines
 
 def conll_to_docs(input_file:str, output_file:str):
+    '''
+    Converts a conll-style file to a doc file used to generate the pre-training data
+    input_file:    Input file - must follow the conll data format
+    output_file:   the resulting file, collecting the sentences/documents
+    '''
     with codecs.open(output_file, 'w', encoding="utf-8") as outfile:
         data = open(input_file, 'r').read().strip().split("\n\n")
         for entry in data:
             words = [line.split()[0] for line in entry.splitlines()]
             if words[0]=='-DOCSTART-':
                outfile.write("\n")
-               continue 
+               continue
             else:
                 w = ' '.join([word for word in words if len(word) > 0])
                 outfile.write(w+"\n")
 
 def conll_to_csv(file:str):
     """Write CONLL-2003 to csv"""
-
     csv_dir = Path('./csv')
     csv_dir.mkdir(parents=True, exist_ok=True)
 

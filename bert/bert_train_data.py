@@ -1,3 +1,6 @@
+'''
+Source: https://github.com/huggingface/pytorch-pretrained-BERT/blob/master/examples/lm_finetuning/pregenerate_training_data.py
+'''
 import json
 import shelve
 from argparse import ArgumentParser

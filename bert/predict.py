@@ -1,15 +1,17 @@
+from pathlib import Path
+
 import fire
 import torch
-from pathlib import Path
 from fastai.basic_train import load_learner
+from ner_data import VOCAB, idx2label
 from pytorch_pretrained_bert import BertForTokenClassification
 from pytorch_pretrained_bert.tokenization import BertTokenizer
-from ner_data import idx2label, VOCAB
+
 
 def to_feature(sent, bert_model):
     tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=False)
     words = ['[CLS]']+sent+['[SEP]']
-    
+
     x, mask = [], []
     for w in words:
         w = w.strip()
@@ -32,12 +34,15 @@ def predict(name, lang='eng', path='learn', model_dir='models'):
     model = BertForTokenClassification.from_pretrained(bert_model, num_labels=len(VOCAB), cache_dir='bertm')
     model.load_state_dict(state['model'], strict=True)
     print('Done')
+
     try:
         while True:
+            # get sentence
             sent = input('Enter sentence: ')
-            words = sent.split() 
+            words = sent.split()
             x, mask = to_feature(words, bert_model)
             with torch.no_grad():
+                # predict named entities
                 out = model(x)
                 pred = out.argmax(-1).view(-1)
                 print(pred)
@@ -46,6 +51,7 @@ def predict(name, lang='eng', path='learn', model_dir='models'):
                 active_pred = active_pred.tolist()
                 for w,l in zip(words,active_pred[1:-1]):
                     print(f'{w} {idx2label[l]}')
+
     except Exception as e:
         print('See ya')
 

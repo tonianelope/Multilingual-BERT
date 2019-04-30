@@ -14,8 +14,7 @@ from fastai.callback import OptimWrapper
 from fastai.metrics import fbeta
 from fastai.torch_core import flatten_model, to_device
 from fastai.train import to_fp16
-from learner import (Conll_F1, OneHotCallBack, conll_f1, create_fp16_cb,
-                     ner_loss_func, tf_loss_func, write_eval)
+from learner import Conll_F1, conll_f1, ner_loss_func
 from ner_data import VOCAB, NerDataset, idx2label, pad
 from optimizer import BertAdam, initBertAdam
 from pytorch_pretrained_bert import BertForTokenClassification
@@ -38,6 +37,7 @@ def apply_freez(learn, layers, lay):
     print('Freezing layers ', lay, ' off ', layers)
 
 def bert_layer_list(model):
+    ''' Break a bert base model in to a list of layers'''
     ms = torch.nn.ModuleList()
 
     flm = flatten_model(model)
@@ -52,23 +52,6 @@ def bert_layer_list(model):
     # head = [-2:]
     ms.append(torch.nn.ModuleList(flm[-2:]))
     return ms
-
-def train(learn, epochs, lr, name, freez, discr, one_cycle, save):
-    lrs = lr if not discr else learn.lr_range(slice(start_lr, end_lr))
-    for epoch in range(epochs):
-        if freez:
-            if epoch==0: learn.freeze()
-            elif epoch==epochs-1: learn.unfreeze()
-            else:
-                lay = (15//(epochs-1)) * epoch * -1
-                print('freez top ', lay, ' off ', 15)
-                learn.freeze_to(lay)
-        if one_cycle:
-            learn.fit_one_cylce(1, lrs, mom=(0.8, 0.7))
-        else:
-            learn.fit(1, lrs)
-        if save: m_path = learn.save(f"{name}_{epoch}_model", return_path=True)
-    if save: print(f'Saved model to {m_path}')
 
 def run_ner(lang:str='eng',
             log_dir:str='logs',
@@ -112,12 +95,6 @@ def run_ner(lang:str='eng',
         torch.manual_seed(rand_seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(rand_seed)
-    if grad_acc_steps < 1:
-        raise ValueError(f"""Invalid grad_acc_steps parameter:
-                         {grad_acc_steps}, should be >= 1""")
-
-    # TODO proper training with grad accum step??
-    batch_size //= grad_acc_steps
 
     trainset = dataset + lang + '/train.txt'
     devset = dataset +lang + '/dev.txt'
@@ -129,7 +106,7 @@ def run_ner(lang:str='eng',
 
     model = torch.nn.DataParallel(model)
     model_lr_group = bert_layer_list(model)
-    layers = len(model_lr_group) 
+    layers = len(model_lr_group)
     kwargs = {'max_seq_len':max_seq_len, 'ds_size':ds_size, 'mask':mask}
 
     train_dl = DataLoader(
@@ -160,61 +137,43 @@ def run_ner(lang:str='eng',
         collate_fn=pad,
         path = Path(data_bunch_path)
     )
-    param_optimizer = list(model.named_parameters())
-    no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
-    optimizer_grouped_parameters = [
-        {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay': 0.01},
-        {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
-    ]
 
-    train_opt_steps = int(len(train_dl.dataset) / batch_size / grad_acc_steps) * epochs
-    optim = BertAdam(model.parameters(),#optimizer_grouped_parameters,
-                     lr=lr,
-                     warmup=warmup_proportion,
-                     t_total=train_opt_steps)
-    #optim = partial(initBertAdam, lr=lr, warmup=warmup_proportion, t_total=train_opt_steps)
-    f1 = partial(fbeta, beta=1, sigmoid=False)
     loss_fun = ner_loss_func if loss=='cross' else partial(ner_loss_func, zero=True)
     metrics = [Conll_F1()]
-    fp16_cb_fns = partial(create_fp16_cb,
-                          train_opt_steps = train_opt_steps,
-                          gradient_accumulation_steps = grad_acc_steps,
-                          warmup_proportion = warmup_proportion,
-                          fp16 = fp16)
-
-    if fp16:
-        try:
-            from apex.optimizers import FP16_Optimizer
-            from apex.optimizers import FusedAdam
-        except ImportError:
-            raise ImportError("Please install apex from https://www.github.com/nvidia/apex"
-                              "to use distributed and fp16 training.")
-        optim, dynamic=(FusedAdam, True) if not loss_scale else (FP16_Optimizer,False)
 
     learn = Learner(data, model, BertAdam,
                     loss_func=loss_fun,
                     metrics=metrics,
                     true_wd=False,
-                    #callback_fns=fp16_cb_fns,
-                    layer_groups=None if not freez else model_lr_group, 
+                    layer_groups=None if not freez else model_lr_group,
                     path='learn',
                     )
+
+    # initialise bert adam optimiser
+    train_opt_steps = int(len(train_dl.dataset) / batch_size) * epochs
+    optim = BertAdam(model.parameters(),
+                     lr=lr,
+                     warmup=warmup_proportion,
+                     t_total=train_opt_steps)
+
     if bertAdam: learn.opt = OptimWrapper(optim)
     else: print("No Bert Adam")
+
     # load fine-tuned learner
     if tuned_learner:
         print('Loading pretrained learner: ', tuned_learner)
         learn.load(tuned_learner)
 
-    if fp16: learn.to_fp16(loss_scale=loss_scale, dynamic=dynamic)
-
+    # Uncomment to graph learning rate plot
     # learn.lr_find()
     # learn.recorder.plot(skip_end=15)
-    if div:
-        layers=div
-    #mlrs = [9e-6] + [5e-5/lrm**3 ,5e-5/lrm**2, 5e-5/lrm, 5e-5] + [0.003/lrm ,0.003]
+
+    # set lr (discriminative learning rates)
+    if div: layers=div
     lrs = lr if not discr else learn.lr_range(slice(lr/lrm**(layers), lr))
+
     results = [['epoch', 'lr', 'f1', 'val_loss', 'train_loss', 'train_losses']]
+
     if do_train:
         for epoch in range(epochs):
             if freez:
@@ -224,7 +183,6 @@ def run_ner(lang:str='eng',
                 else: print('freeze2');learn.freeze_to(lay)
                 print('Freezing layers ', lay, ' off ', layers)
 
-            #learn.freeze()
             # Fit Learner - eg train model
             if one_cycle: learn.fit_one_cycle(1, lrs, moms=(0.8, 0.7))
             else: learn.fit(1, lrs)
@@ -236,24 +194,12 @@ def run_ner(lang:str='eng',
                 np.array(learn.recorder.losses).mean(),
                 learn.recorder.losses,
             ])
-            logging.info('Validation VAL')
-            write_eval('Validation VAL')
-            #learn.recorder.plot_losses()
-            #res = learn.validate(dev_dl, metrics=metrics)
-            #met_res = [f'{m.__name__}: {r}' for m, r in zip(metrics, res[1:])]
-            #print(f'VALIDATION DEV SET:\nloss {res[0]}, {met_res}')
 
-            if epoch==2 and do_eval:
-                res = learn.validate(test_dl, metrics=metrics)
-                met_res = [f'{m.__name__}: {r}' for m, r in zip(metrics, res[1:])]
-                print(f'Validation on TEST SET:\nloss {res[0]}, {met_res}')
-                results.append([
-                    'val', '-', res[1], res[0], '-','-'
-                ])
             if save:
                 m_path = learn.save(f"{lang}_{epoch}_model", return_path=True)
                 print(f'Saved model to {m_path}')
     if save: learn.export(f'{lang}.pkl')
+
     if do_eval:
         res = learn.validate(test_dl, metrics=metrics)
         met_res = [f'{m.__name__}: {r}' for m, r in zip(metrics, res[1:])]

@@ -31,6 +31,9 @@ log_format = '%(asctime)-10s: %(message)s'
 logging.basicConfig(level=logging.INFO, format=log_format)
 
 def bert_layer_list(model):
+    '''
+    Get Layers for BERT WITH LM OBJECTIVE
+    '''
     ms = torch.nn.ModuleList()
 
     flm = flatten_model(model)
@@ -49,6 +52,10 @@ def bert_layer_list(model):
 
 # this PR for ref https://github.com/fastai/fastai/commit/16a858751fc3bd37153a8ada434042f7a53df111
 class PregeneratedData(Callback):
+    '''
+    Change traing dataset at every epoch
+    '''
+
     def __init__(self, path, tokenizer, epochs, batch_size, epoch=0):
         self.path = path
         self.tokenizer = tokenizer
@@ -59,7 +66,7 @@ class PregeneratedData(Callback):
             training_path=self.path,
             tokenizer=self.tokenizer,
             num_data_epochs=self.epochs)
-        self.dataset = data #DataLoader(data, shuffle=True, batch_size=self.batch_size)
+        self.dataset = data
 
     def __len__(self): return len(self.dataset)
     def __getattr(self, k:str): return getattr(self.dataset, k)
@@ -72,17 +79,10 @@ class PregeneratedData(Callback):
             training_path=self.path,
             tokenizer=self.tokenizer,
             num_data_epochs=self.epochs)
-        self.dataset = data# DataLoader(data, shuffle=True, batch_size=self.batch_size)
+        self.dataset = data
 
     def __getitem__(self, idx:int):
-        #print(self.dataset[idx][0][0].shape,self.dataset[idx][0][2].shape,self.dataset[idx][0][4].shape)
         return self.dataset[idx]
-
-    # def on_batch_begin(self, last_input, last_target, **kwargs):
-    #     for batch in self.epoch_dataset:
-    #         batch = to_device(batch, torch.cuda.current_device())
-    #         t = to_device(torch.tensor([]), torch.cuda.current_device())
-    #         yield {'last_input': batch, 'last_target': t}
 
 def convert_example_to_features(example, tokenizer, max_seq_length):
     tokens = example["tokens"]
@@ -160,7 +160,7 @@ class PregeneratedDataset(Dataset):
                 input_masks[i] = features.input_mask
                 lm_label_ids[i] = features.lm_label_ids
                 is_nexts[i] = features.is_next
-        
+
         inlen = len(input_ids[0])
         for x in input_ids:
             assert len(x) == inlen
@@ -312,12 +312,14 @@ def main():
                     path='learn',
                     layer_groups=bert_layer_list(model),
     )
+
     lr= args.learning_rate
     layers = len(bert_layer_list(model))
     lrs = learn.lr_range(slice(lr/(2.6**4), lr))
     for epoch in range(args.epochs):
         learn.fit_one_cycle(1, lrs, wd=0.01)
-        if epoch == args.epochs//2: 
+        # save model at half way point
+        if epoch == args.epochs//2:
             savem = learn.model.module.bert if hasattr(learn.model, 'module') else learn.model.bert
             output_model_file = args.output_dir / (f"pytorch_fastai_model_{args.bert_model}_{epoch}.bin")
             torch.save(savem.state_dict(), str(output_model_file))

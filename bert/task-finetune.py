@@ -53,43 +53,19 @@ def bert_layer_list(model):
     ms.append(torch.nn.ModuleList(flm[-2:]))
     return ms
 
-def train(learn, epochs, lr, name, freez, discr, one_cycle, save):
-    lrs = lr if not discr else learn.lr_range(slice(start_lr, end_lr))
-    for epoch in range(epochs):
-        if freez:
-            if epoch==0: learn.freeze()
-            elif epoch==epochs-1: learn.unfreeze()
-            else:
-                lay = (15//(epochs-1)) * epoch * -1
-                print('freez top ', lay, ' off ', 15)
-                learn.freeze_to(lay)
-        if one_cycle:
-            learn.fit_one_cylce(1, lrs, mom=(0.8, 0.7))
-        else:
-            learn.fit(1, lrs)
-        if save: m_path = learn.save(f"{name}_{epoch}_model", return_path=True)
-    if save: print(f'Saved model to {m_path}')
-
 def run_ner(lang:str='eng',
             log_dir:str='logs',
             task:str=NER,
             batch_size:int=1,
-            lr:float=5e-5,
             epochs:int=1,
             dataset:str='data/conll-2003/',
             loss:str='cross',
             max_seq_len:int=128,
             do_lower_case:bool=False,
             warmup_proportion:float=0.1,
-            grad_acc_steps:int=1,
             rand_seed:int=None,
-            fp16:bool=False,
-            loss_scale:float=None,
             ds_size:int=None,
             data_bunch_path:str='data/conll-2003/db',
-            freez:bool=False,
-            one_cycle:bool=False,
-            discr:bool=False,
             tuned_learner:str=None,
             do_train:str=False,
             do_eval:str=False,
@@ -97,8 +73,7 @@ def run_ner(lang:str='eng',
             nameX:str='ner',
             mask:tuple=('s','s'),
 ):
-    name = "_".join(map(str,[nameX,task, lang, mask[0],mask[1], loss, batch_size, lr, max_seq_len,do_train, do_eval]))
-    
+    name = "_".join(map(str,[nameX,task, lang, mask[0],mask[1], loss, batch_size, max_seq_len,do_train, do_eval]))
     log_dir = Path(log_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
     init_logger(log_dir, name)
@@ -109,12 +84,6 @@ def run_ner(lang:str='eng',
         torch.manual_seed(rand_seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(rand_seed)
-    if grad_acc_steps < 1:
-        raise ValueError(f"""Invalid grad_acc_steps parameter:
-                         {grad_acc_steps}, should be >= 1""")
-
-    # TODO proper training with grad accum step??
-    batch_size //= grad_acc_steps
 
     trainset = dataset + lang + '/train.txt'
     devset = dataset +lang + '/dev.txt'
@@ -129,7 +98,7 @@ def run_ner(lang:str='eng',
 
     model = torch.nn.DataParallel(model)
     model_lr_group = bert_layer_list(model)
-    layers = len(model_lr_group) 
+    layers = len(model_lr_group)
     kwargs = {'max_seq_len':max_seq_len, 'ds_size':ds_size, 'mask':mask}
 
     train_dl = DataLoader(
@@ -160,53 +129,32 @@ def run_ner(lang:str='eng',
         collate_fn=pad,
         path = Path(data_bunch_path)
     )
-    param_optimizer = list(model.named_parameters())
-    no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
-    optimizer_grouped_parameters = [
-        {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay': 0.01},
-        {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
-    ]
 
-    train_opt_steps = int(len(train_dl.dataset) / batch_size / grad_acc_steps) * epochs
-    optim = BertAdam(model.parameters(),#optimizer_grouped_parameters,
-                     lr=lr,
+    train_opt_steps = int(len(train_dl.dataset) / batch_size) * epochs
+    optim = BertAdam(model.parameters(),
+                     lr=0.01,
                      warmup=warmup_proportion,
                      t_total=train_opt_steps)
-    #optim = partial(initBertAdam, lr=lr, warmup=warmup_proportion, t_total=train_opt_steps)
-    f1 = partial(fbeta, beta=1, sigmoid=False)
+
     loss_fun = ner_loss_func if loss=='cross' else partial(ner_loss_func, zero=True)
     metrics = [Conll_F1()]
-    fp16_cb_fns = partial(create_fp16_cb,
-                          train_opt_steps = train_opt_steps,
-                          gradient_accumulation_steps = grad_acc_steps,
-                          warmup_proportion = warmup_proportion,
-                          fp16 = fp16)
-
-    if fp16:
-        try:
-            from apex.optimizers import FP16_Optimizer
-            from apex.optimizers import FusedAdam
-        except ImportError:
-            raise ImportError("Please install apex from https://www.github.com/nvidia/apex"
-                              "to use distributed and fp16 training.")
-        optim, dynamic=(FusedAdam, True) if not loss_scale else (FP16_Optimizer,False)
 
     learn = Learner(data, model, BertAdam,
                     loss_func=loss_fun,
                     metrics=metrics,
                     true_wd=False,
-                    #callback_fns=fp16_cb_fns,
-                    layer_groups=model_lr_group, 
+                    layer_groups=model_lr_group,
                     path='learn'+nameX,
                     )
+
     learn.opt = OptimWrapper(optim)
-    # load fine-tuned learner
-    # learn.recorder.plot(skip_end=15)
+
     lrm = 1.6
 
-    #mlrs = [9e-6] + [5e-5/lrm**3 ,5e-5/lrm**2, 5e-5/lrm, 5e-5] + [0.003/lrm ,0.003]
+    # select set of starting lrs
     lrs_eng = [0.01, 5e-4, 3e-4, 3e-4, 1e-5]
     lrs_deu = [0.01, 5e-4, 5e-4, 3e-4, 2e-5]
+
     startlr = lrs_eng if lang=='eng' else lrs_deu
     results = [['epoch', 'lr', 'f1', 'val_loss', 'train_loss', 'train_losses']]
     if do_train:
@@ -224,6 +172,7 @@ def run_ner(lang:str='eng',
         learn.unfreeze()
         lrs = learn.lr_range(slice(startlr[4]/(1.6**15), startlr[4]))
         learn.fit_one_cycle(1, lrs, moms=(0.8, 0.7))
+
     if do_eval:
         res = learn.validate(test_dl, metrics=metrics)
         met_res = [f'{m.__name__}: {r}' for m, r in zip(metrics, res[1:])]
