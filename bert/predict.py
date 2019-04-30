@@ -27,7 +27,7 @@ def to_feature(sent, bert_model):
 def predict(name, lang='eng', path='learn', model_dir='models'):
     path, model_dir = Path(path), Path(model_dir)
     print('Loading model...')
-    device = 'gpu' if torch.cuda.is_available() else 'cpu'
+    device = 'cpu'
     state = torch.load(path/model_dir/f'{name}.pth', map_location=device)
     bert_model = 'bert-base-cased' if lang=='eng' else 'bert-base-multilingual-cased'
     print(f'Lang: {lang}\nModel: {bert_model}\nRun: {name}')
