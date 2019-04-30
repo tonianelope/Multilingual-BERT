@@ -1,16 +1,21 @@
 # GermLM
-Exploring Multilingual Language Models and their effectinves for NER in German and English
+Exploring Multilingual Language Models and their effectinves for Named Entity Recognition (NER) in German and English.
 
 ## Requierements
-Requierements can be installed via the `requierements.txt`.
+* Python 3.x
+
+Requierements can be installed via `pip` using the `requierements.txt`.
 We use 
 * pytorch
 * [pytorch_pretrained_bert](https://github.com/huggingface/pytorch-pretrained-BERT/)
 * [fastai]
 
-It is recommended to run this on at least 1 GPU. Our experiments were conducted using 2.
+It is recommended to run the experiments on at least 1 GPU. Our experiments were conducted using 2.
+The prediction is run on CPU only.
 
-#### (Example) Replicating English BERT NER experiment
+## NER experiments
+We uset Google's [BERT] model (english bert base and multilingual bert base, both cased) and evaluate them on the [CoNLL-2003] NER dataset.
+
 Create the appropriate datasets using the makefile
 
 Run `run_ner.py`. Usage (listing the most important options) :
@@ -22,8 +27,9 @@ Run `run_ner.py`. Usage (listing the most important options) :
 * `loss`: set to `zero` to mask of all padding during loss calculation
 * `ds_size`: limit the dataset loaded for testing
 * `bertAdam`: if flag set uses the BertAdam optimiser
+* `save`: saves the final model, it can then be loaded with `predict.py` for NER.
 
-### Replicate English BERT NER
+#### (Example) Replicating English BERT NER experiment
 Create the dataset:
 ```shell
 make dataset-engI
@@ -33,7 +39,7 @@ Train the NER model:
 python run_ner.py --do-train --do-eval --lr=3e-5 --batch-size=16 --epochs=4 --bertAdam --dataset=data/conll-2003-I/
 ```
 
-### Try out the model
+### [DEMO] Use your trained model for NER
 If you use `run_ner.py` with the `save` flag, the saved model can be loaded in `predict.py` and it will recognise the named entities of the senteces provided. Note, you just need to proved the file name, the learner will automatically look for it in it's directory and append to correct extension.
 
 ```
@@ -62,7 +68,8 @@ Ireland. I-LOC
 Enter sentence: ...
 ```
 
-## Fine-tuning
+## Fine-tuning experiments
+We apply the LM fine-tuning methods from [ULMFIT] to the BERT model, in order to boost performance. It does not work.
 
 ### LM - pretraining
 
@@ -86,6 +93,41 @@ Run `task-finetuning.py` to fine-tuning using the tuning methods from [ULMFIT]. 
 ```
 python task-finetuning.py --batch-size=16 --epochs=4 --lr=5e-5 --do-train --do-eval --dataset=data/conll-2003-I/ --lang=deu --tuned-learner='pretrain/pytorch_fastai_model_i_bert-base-multilingual-cased_10.bin'
 ```
+
+## Results
+#### English
+ model | datset | dev f1 | test f1
+  -- |--|--|--
+ BERT Large | - | 96.6 | 92.8
+ BERT Base | - | 96.4 | 92.4
+  English BERT (ours) | IOB1 | 96.4 | **92.6**
+ " | BIO | 95.6 | 92.2
+ Mutlilingual BERT (ours) | IOB1 | 96.4 | 91.9
+ " | BIO | 96.5 | 92.1
+#### German
+ model | datset | dev f1 | test f1
+  -- |--|--|--
+ Ahmed & Mehler | IOB1 | - | 83.64
+ Riedl & Pado | - | - | 84.73
+ Mutlilingual BERT (ours) | IOB1 | **88.44** | **85.81**
+ " | BIO | 87.49 | 84.98 
+
+Fine-tuning showed no improvement, the results stayed about the same.
+
+## File overview:
+
+* `bert_train_data.py`: generates data for LM fine-tuning (see `make 2bert` for example usage)
+* `{deu|eng}-tune-ex-i.ipynb`: used to select discriminative learning rates for fine-tuning
+* `learner.py`: provides helper functions for the fastai learner: e.g loss function , metric callback
+* `lm_finetune.py`: fine-tunes LM on pregenerated bert data
+* `makefile`: make instructions for dataset generation etc.
+* `ner_data.py`: contains the data preprocessing
+* `optimizer.py`: adation of BertAdam optimiser to work with fastai
+* `plots.ipynb`: generate plots for discriminative learning rate selection.
+* `predict.py`: use pretrained model for NER
+* `requirements.txt`: requirements of project
+* `run_ner.py`: Run NER experiment; train bert model on conll-2003 data
+* `task-finetune.py`: fine-tune with [ULMFIT] fine-tuning methods (current discriminative lrs are hard coded).
 
 [BERT]:https://arxiv.org/pdf/1810.04805.pdf
 [ULMFiT]: https://arxiv.org/pdf/1801.06146.pdf
