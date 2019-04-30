@@ -34,7 +34,11 @@ python run_ner.py --do-train --do-eval --lr=3e-5 --batch-size=16 --epochs=4 --be
 ```
 
 ### Try out the model
-If you use `run_ner.py` with the `save` flag, the saved model can be loaded in `predict.py` and it will recognise the named entities of the senteces provided.
+If you use `run_ner.py` with the `save` flag, the saved model can be loaded in `predict.py` and it will recognise the named entities of the senteces provided. Note, you just need to proved the file name, the learner will automatically look for it in it's directory and append to correct extension.
+
+```
+python predict.py eng_3_model
+```
 
 ## Fine-tuning
 
