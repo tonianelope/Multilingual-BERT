@@ -58,7 +58,7 @@ Learnig rates were selected using the jupter notebooks.
 
 Run `task-finetuning.py` to fine-tuning using the tuning methods from [ULMFIT]. Add `tuned_learner` to load the fine-tuned LM:
 ```
-python task-finetuning.py --name=$N --batch-size=16 --epochs=4 --lr=5e-5 --do-train --do-eval --dataset=data/conll-2003-I/ --lang=deu --tuned-learner='pretrain/pytorch_fastai_model_i_bert-base-multilingual-cased_10.bin'
+python task-finetuning.py --batch-size=16 --epochs=4 --lr=5e-5 --do-train --do-eval --dataset=data/conll-2003-I/ --lang=deu --tuned-learner='pretrain/pytorch_fastai_model_i_bert-base-multilingual-cased_10.bin'
 ```
 
 [BERT]:https://arxiv.org/pdf/1810.04805.pdf
