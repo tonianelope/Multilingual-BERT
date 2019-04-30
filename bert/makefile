@@ -1,23 +1,28 @@
-D_TRAIN=https://raw.githubusercontent.com/Nidhi-K/Natural-Language-Processing-Projects/master/Sequential%20CRF%20for%20NER/data/deu.train
-D_VALID=https://raw.githubusercontent.com/Nidhi-K/Natural-Language-Processing-Projects/master/Sequential%20CRF%20for%20NER/data/deu.testa
-D_TEST=https://raw.githubusercontent.com/Nidhi-K/Natural-Language-Processing-Projects/master/Sequential%20CRF%20for%20NER/data/deu.testb
-TRAIN=https://raw.githubusercontent.com/kyzhouhzau/BERT-NER/master/NERdata/train.txt
-VALID=https://raw.githubusercontent.com/kyzhouhzau/BERT-NER/master/NERdata/dev.txt
-TEST=https://raw.githubusercontent.com/kyzhouhzau/BERT-NER/master/NERdata/test.txt
+GERM_URL=https://raw.githubusercontent.com/Nidhi-K/Natural-Language-Processing-Projects/master/Sequential%20CRF%20for%20NER/data/
+GERMI_URL=https://raw.githubusercontent.com/MaviccPRP/ger_ner_evals/master/corpora/conll2003/
+ENG_URL=https://raw.githubusercontent.com/kyzhouhzau/BERT-NER/master/data/
+ENGI_URL=https://raw.githubusercontent.com/smb564/NLP/master/src/
+
+
+D_TRAIN=$(GERM_URL)deu.train
+D_VALID=$(GERM_URL)deu.testa
+D_TEST=$(GERM_URL)deu.testb
+TRAIN=$(ENG_URL)train.txt
+VALID=$(ENG_URL)dev.txt
+TEST=$(ENG_URL)test.txt
 
 EXEC=python run_ner.py
-
 
 help:
 	$(EXEC) --help
 
 basic-bert:
 	$(EXEC) --batch-size=$(BS) --epochs=4 --lr=5e-5 $(W)
-	make mv-logs DIR='$(BS)$(W)-logs'
 	$(EXEC) --batch-size=$(BS) --epochs=4 --lr=3e-5 $(W)
-	make mv-logs DIR='$(BS)$(W)-logs'
 	$(EXEC) --batch-size=$(BS) --epochs=4 --lr=2e-5 $(W)
-	make mv-logs DIR='$(BS)$(W)-logs'
+
+icetown:
+	$(EXEC) --do-train --do-eval --batch-size=32 --epochs=4 --lr=$(LR) --freez --discr --one-cycle --lang=$(L)
 
 test1:
 	$(EXEC) --ds-size=1 $(W)
@@ -37,6 +42,12 @@ run-b:
 apex-run:
 	$(EXEC) --batch_size=16 --epochs=1 --fp16 $(W)
 
+2bert:
+	python bert_train_data.py --train_corpus $(DIR)docs.txt --bert_model $(M) --output_dir $(DIR) --epochs_to_generate $(E) --max_seq_len 256
+
+pretrain_lm:
+	python $(FILE) --pregenerated_data $(DIR) --bert_model $(M) --output_dir pretrain --epochs $(E) --train_batch_size 16
+
 datasets:
 	make dataset-eng
 	make dataset-deu
@@ -47,11 +58,24 @@ dataset-eng:
 	wget --progress=bar $(VALID) && mv dev.txt data/conll-2003/eng
 	wget --progress=bar $(TEST) && mv test.txt data/conll-2003/eng
 
+dataset-engI:
+	mkdir -p data/conll-2003-I/eng
+	wget --progress=bar $(ENGI_URL)conll2003.eng.train && mv conll2003.eng.train data/conll-2003-I/eng/train.txt
+	wget --progress=bar $(ENGI_URL)conll2003.eng.testa && mv conll2003.eng.testa data/conll-2003-I/eng/dev.txt
+	wget --progress=bar $(ENGI_URL)conll2003.eng.testb && mv conll2003.eng.testb data/conll-2003-I/eng/test.txt
+
 dataset-deu:
 	mkdir -p data/conll-2003/deu
 	wget --progress=bar $(D_TRAIN) && mv deu.train train.txt && mv train.txt data/conll-2003/deu
 	wget --progress=bar $(D_VALID) && mv deu.testa dev.txt && mv dev.txt data/conll-2003/deu
 	wget --progress=bar $(D_TEST) && mv deu.testb test.txt && mv test.txt data/conll-2003/deu
+
+dataset-deuI:
+	mkdir -p data/conll-2003-I/deu
+	wget --progress=bar $(GERMI_URL)deuutf.train && mv deuutf.train data/conll-2003-I/deu/train.txt
+	wget --progress=bar $(GERMI_URL)deuutf.testa && mv deuutf.testa data/conll-2003-I/deu/dev.txt
+	wget --progress=bar $(GERMI_URL)deu.testb && mv deu.testb data/conll-2003-I/deu/test.txt
+
 
 model:
 	wget https://s3.amazonaws.com/models.huggingface.co/bert/$(BERT).tar.gz

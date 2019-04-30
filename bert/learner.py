@@ -7,101 +7,58 @@ from fastai.basic_train import Learner, LearnerCallback
 from fastai.callback import Callback
 from fastai.core import is_listy
 from fastai.metrics import fbeta
-from fastai.torch_core import add_metrics, num_distrib
+from fastai.torch_core import add_metrics, num_distrib, to_device
 from ner_data import VOCAB, idx2label
 from pytorch_pretrained_bert.modeling import BertModel, BertPreTrainedModel
 from pytorch_pretrained_bert.optimization import warmup_linear
 
 EPOCH =0
+WEIGHTS = torch.tensor([0.2, 0.2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
 
-def write_eval(msg, epoch=EPOCH):
-    global EPOCH
-    EPOCH=epoch
-    with open(f'logs/eval_{epoch}.log', 'a') as f:
-        f.write(msg+'\n')
+def ner_loss_func(out, *ys, zero=False): 
+    '''
+    Loss function - to use with fastai learner
+    It calculates the loss for token classification using softmax cross entropy
+    If out is already the loss, we simply return the loss
+    '''
+    if torch.cuda.is_available():
+        ys = to_device(ys, torch.cuda.current_device())
 
-def write_eval_lables(pred, true):
-    for p, t in zip(pred, true):
-        t = idx2label[t.item()]
-        p = idx2label[p.item()]
-        write_eval(f"{t} {p} {t==p}")
-    write_eval("\n")
-
-def write_log(msg):
-    with open('logs/out.log', 'a') as f:
-        f.write(msg)
-        f.write('\n')
-
-def ner_loss_func(out, *ys, cross_ent=False):
-    if out.shape<=torch.Size([1]):
-        loss = out
+    # If out is already the loss
+    if out.size()<=torch.Size([2]):
+        loss = out.mean() # return mean in case dataparallel is used
     else:
-        loss_fct = torch.nn.CrossEntropyLoss(ignore_index=0)
-        _, labels, attention_mask = ys
+        loss_fct = torch.nn.CrossEntropyLoss(reduction='none')
+        if zero: loss_fct = torch.nn.CrossEntropyLoss(ignore_index=0 , reduction='none')
+
+        one, labels, attention_mask = ys
         # Only keep active parts of the loss
         if attention_mask is not None:
             active_loss = attention_mask.view(-1) == 1
             active_logits = out.view(-1, len(VOCAB))[active_loss]
             active_labels = labels.view(-1)[active_loss]
-            try:
-                loss = loss_fct(active_logits, active_labels)
-            except Exception as e:
-                loss = loss_fct(out.view(-1, len(VOCAB)), labels.view(-1))
-        else:
+            loss = loss_fct(active_logits, active_labels)
+            logging.info(active_labels)
+            logging.info(loss)
+            logging.info(loss.sum(-1))
+            loss = loss.mean(-1)
+            logging.info(loss)
+        else: # if no attention mask specified calculate loss on all tokens
             loss = loss_fct(out.view(-1, len(VOCAB)), labels.view(-1))
     return loss
 
-class OneHotCallBack(Callback):
-
-    def __init__(self, func):
-        # If it's a partial, use func.func
-        name = getattr(func,'func', func).__name__
-        self.func, self.name = func, name
-        self.epoch = 1
-        self.world = num_distrib()
-        self.i = 0
-
-    def on_epoch_begin(self, **kwargs):
-        "Set the inner value to 0."
-        #write_log(f"E {kwargs['epoch']}")
-        self.val, self.count = 0.,0
-
-    def on_batch_end(self, last_output, last_target, **kwargs):
-        "Update metric computation with `last_output` and `last_target`."
-
-        #print(f"step: loss: {kwargs['last_loss'].item()}")
-        logging.info(f'masked target: {target_masked}')
-        logging.info(f'masked output: {out_masked}')
-
-        if not is_listy(target_masked): target_masked=[target_masked]
-        self.count += target_masked[0].size(0)
-        val = self.func(out_masked, *target_masked)
-        #write_eval(f'F1={val}', self.epoch)
-        self.i +=1
-
-        if self.world:
-            val = val.clone()
-            dist.all_reduce(val, op=dist.ReduceOp.SUM)
-            val /= self.world
-        self.val += target_masked[0].size(0) * val.detach().cpu()
-
-    def on_epoch_end(self, last_metrics, **kwargs):
-        "Set the final result in `last_metrics`."
-        self.epoch +=1
-        return add_metrics(last_metrics, self.val/self.count)
 
 def conll_f1(pred, *true, eps:float = 1e-9):
+    ''' NOTE: calulcates F1 per batch
+    - use Conll_F1 callback class to calculate overall F1 score
+    '''
+    if torch.cuda.is_available():
+        true = to_device(true, torch.cuda.current_device())
     pred = pred.argmax(-1)
     _, label_ids, label_mask = true
-    mask = label_mask.view(-1)
-    pred = pred.view(-1)
-    labels = label_ids.view(-1)
-    y_pred = torch.masked_select(pred, mask)
-    y_true = torch.masked_select(labels, mask)
-    #write_eval_lables(y_pred, y_true)
-    logging.info('EVAL')
-    logging.info(y_pred)
-    logging.info(y_true)
+    mask = label_mask.view(-1)==1
+    y_pred = pred.view(-1)[mask]
+    y_true = label_ids.view(-1)[mask]
 
     all_pos = len(y_pred[y_pred>1])
     actual_pos = len(y_true[y_true>1])
@@ -110,13 +67,53 @@ def conll_f1(pred, *true, eps:float = 1e-9):
     prec = correct_pos / (all_pos + eps)
     rec = correct_pos / (actual_pos + eps)
     f1 = (2*prec*rec)/(prec+rec+eps)
-    logging.info(f'f1: {f1}')
-    #write_log(f'f1: {f1}')
+    logging.info(f'f1: {f1}   prec: {prec}, rec: {rec}')
 
     return torch.Tensor([f1])
 
-def create_fp16_cb(learn, **kwargs):
-    return FP16_Callback(learn, **kwargs)
+class Conll_F1(Callback):
+
+    def __init__(self):
+        super().__init__()
+        self.__name__='Total F1'
+        self.name = 'Total F1'
+
+    def on_epoch_begin(self, **kwargs):
+        self.correct, self.predict, self.true, self.predict2 = 0,0,0,0
+
+    def on_batch_end(self, last_output, last_target, **kwargs):
+        pred = last_output.argmax(-1)
+        true = last_target
+        if torch.cuda.is_available():
+            true = to_device(true, torch.cuda.current_device())
+        _, label_ids, label_mask = true
+        y_pred = pred.view(-1)
+        y_true = label_ids.view(-1)
+        self.predict2 += len(y_pred[y_pred>1])
+        preds = y_pred[y_true!=0] # mask of padding
+        logging.info(y_true)
+        logging.info(y_pred)
+        logging.info(preds)
+        self.predict += len(preds[preds>1])
+        self.true += len(y_true[y_true>1])
+        self.correct +=(np.logical_and(y_true==y_pred, y_true>1)).sum().item()
+
+    def on_epoch_end(self, last_metrics, **kwargs):
+        eps = 1e-9
+        prec = self.correct / (self.predict + eps)
+        rec = self.correct / (self.true + eps)
+        logging.info(f"====epoch {kwargs['epoch']}====")
+        logging.info(f'num pred2: {self.predict2}')
+        logging.info(f'num pred: {self.predict}')
+        logging.info(f'num corr: {self.correct}')
+        logging.info(f'num true: {self.true}')
+        logging.info(f'prec: {prec}')
+        logging.info(f'rec: {rec}')
+        f1 =(2*prec*rec)/(prec+rec+eps)
+        logging.info(f'f1: {f1}')
+        return add_metrics(last_metrics,f1)
+
+
 
 class FP16_Callback(LearnerCallback):
 
