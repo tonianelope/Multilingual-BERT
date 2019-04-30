@@ -40,6 +40,28 @@ If you use `run_ner.py` with the `save` flag, the saved model can be loaded in `
 python predict.py eng_3_model
 ```
 
+Example output:
+```
+Loading model...
+Lang: eng
+Model: bert-base-cased
+Run: eng_3_model
+Done
+Enter sentence: Antonia goes to Trinity College Dublin, in Ireland.
+input:  ['[CLS]', 'Anton', '##ia', 'goes', 'to', 'Trinity', 'College', 'Dublin', ',', 'in', 'Ireland', '.', '[SEP]']
+tensor([0, 4, 0, 1, 1, 5, 5, 5, 1, 1, 2, 1, 0])
+Named Entities
+Antonia I-PER
+goes O
+to O
+Trinity I-ORG
+College I-ORG
+Dublin, I-ORG
+in O
+Ireland. I-LOC
+Enter sentence: ...
+```
+
 ## Fine-tuning
 
 ### LM - pretraining
