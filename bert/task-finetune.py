@@ -14,8 +14,7 @@ from fastai.callback import OptimWrapper
 from fastai.metrics import fbeta
 from fastai.torch_core import flatten_model, to_device
 from fastai.train import to_fp16
-from learner import (Conll_F1, OneHotCallBack, conll_f1, create_fp16_cb,
-                     ner_loss_func, tf_loss_func, write_eval)
+from learner import Conll_F1, ner_loss_func
 from ner_data import VOCAB, NerDataset, idx2label, pad
 from optimizer import BertAdam, initBertAdam
 from pytorch_pretrained_bert import BertForTokenClassification
