@@ -1,42 +1,65 @@
 # GermLM
-Exploring Language Models and their effectinves (for German)
+Exploring Multilingual Language Models and their effectinves for NER in German and English
 
-1. [Language Models](#LM)
-2. [NLP Tasks](#Tasks)
-3. [Code](#Code)
+## Requierements
+Requierements can be installed via the `requierements.txt`.
+We use 
+* pytorch
+* [pytorch_pretrained_bert](https://github.com/huggingface/pytorch-pretrained-BERT/)
+* [fastai]
 
-- [Timeline](https://docs.google.com/spreadsheets/d/1qDNQsrnsflI8x8Fy9NzZflGyXgI0rxfZDUDpufEVzw0/edit?usp=sharing)
-- [Notes](https://docs.google.com/document/d/1VUu5cna6MblNheDGa7tRTsYjlheZEMigvjyFjUEROPE/edit?usp=sharing)
+It is recommended to run this on at least 1 GPU. Our experiments were conducted using 2.
 
-## Language Models <a name="LM"></a>
+#### (Example) Replicating English BERT NER experiment
+Create the appropriate datasets using the makefile
 
-| Paper                                                                                | LM Architecture | Corpus                   | 
-|--------------------------------------------------------------------------------------|-----------------|--------------------------|
-| Universal Language Model Fine-tuning<br/> for Text Classification ([ULMFiT])         | [AWD-LSTM]      | [Wikitext-103]           |
-| Deep contextualized word<br/> representations ([ELMo])                               | biLM            | 1B Word Benchmark        |
-| Improving Language Understanding<br/>by Generative Pre-Training ([OpenAi])           | Transformer     | [Bookcorpus]             |
-| BERT: Pre-training of Deep Bidirectional<br/>Transformers for Language Understanding | biTransformer   | Wikipedia + [Bookcorpus] |
+Run `run_ner.py`. Usage (listing the most important options) :
+* `lang`: select the language to train. Supported languages are `eng`, `deu`, and `engm` using the english data on the multilingual models
+* `batch_size`
+* `lr`: define learning rate
+* `epochs`: define epochs to train
+* `dataset`: path to dataset. Note: `lang` will be appended to this path to access the language specific dataset.
+* `loss`: set to `zero` to mask of all padding during loss calculation
+* `ds_size`: limit the dataset loaded for testing
+* `bertAdam`: if flag set uses the BertAdam optimiser
 
-### Task comparison
+### Replicate English BERT NER
+Create the dataset:
+```shell
+make dataset-engI
+```
+Train the NER model:
+```
+python run_ner.py --do-train --do-eval --lr=3e-5 --batch-size=16 --epochs=4 --bertAdam --dataset=data/conll-2003-I/
+```
 
-|| Task                     | Dataset     | [ULMFiT] |    [ELMo] |  [OpenAi] |    [BERT] |     pSoTA |
-|-| ---                      | ---         |      --- |       --- |       --- |       --- |       --- |
-| | Textual Entailment       | SNLI        |          |           |      **89.9** |           |      89.3 |
-| |                          | MNLI (m/mm) |          | 76.4/76.1 | 82.1/81.4 | **86.7/85.9** | 80.6/80.1 |
-| |                          | QNLI        |          |      79.9 |      88.1 |      **91.1** |      82.3 |
-| |                          | RTE         |          |      56.8 |      56.0 |      **70.1** |      61.7 |
-| | Semantic Similarity      | STS-B       |          |      73.3 |      80.0 |      **86.5** |      81.0 |
-| |                          | QQP         |          |      64.8 |      70.3 |      **72.1** |      66.1 |
-| |                          | MRPC        |          |      84.9 |      82.3 |      **89.3** |      86.0 |
-|?| Sentiment Analysis       | SST-2       |          |      94.9 |      91.3 |      **94.9** |      93.2 |
-| |                          | IMDb        |     **95.4** |           |           |           |      94.1 |
-| |                          | TREC-6      |     **96.4** |           |           |           |      96.1 |
-|?| Linguistic Acceptability | CoLA        |          |      36.0 |      45.4 |      **60.5** |      35.0 |
-|x| Question Answering       | SQuAD       |          | (85.8)dev |           |      **93.2** |      91.7 |
-|x| Named Entity Recognition | CoNNL-2003  |          |      92.2 |           |      **92.8** |      92.6 |
-| | Common sense inference   | SWAG        |          |      59.2 |           |      **86.3** |      52.7 |
-| | Multi Task Benchmark     | GLUE        |          |           |           |           |           |
+### Try out the model
+If you use `run_ner.py` with the `save` flag, the saved model can be loaded in `predict.py` and it will recognise the named entities of the senteces provided.
 
+## Fine-tuning
+
+### LM - pretraining
+
+Use `conl_to_docs` from `ner_data.py` to convert the trainings set to a document of sentences.
+
+Use the output file you specified as input to the data generation:
+```
+make 2bert DIR='data/conll-2003/eng/' M='bert-base-cased' E=20
+```
+
+Then fine-tune the language model on the task data:
+```
+make pretrain_lm FILE='lm_finetune.py' DIR='data/conll-2003/deu/' M='bert-base-multilingual-cased' E=20 
+```
+
+### Task-finetuning
+
+Learnig rates were selected using the jupter notebooks.
+
+Run `task-finetuning.py` to fine-tuning using the tuning methods from [ULMFIT]. Add `tuned_learner` to load the fine-tuned LM:
+```
+python task-finetuning.py --name=$N --batch-size=16 --epochs=4 --lr=5e-5 --do-train --do-eval --dataset=data/conll-2003-I/ --lang=deu --tuned-learner='pretrain/pytorch_fastai_model_i_bert-base-multilingual-cased_10.bin'
+```
 
 [BERT]:https://arxiv.org/pdf/1810.04805.pdf
 [ULMFiT]: https://arxiv.org/pdf/1801.06146.pdf
@@ -46,81 +69,17 @@ Exploring Language Models and their effectinves (for German)
 [Wikitext-103]: https://www.salesforce.com/products/einstein/ai-research/the-wikitext-dependency-language-modeling-dataset/
 [Bookcorpus]: http://yknzhu.wixsite.com/mbweb
 
-## Creating a Language Model
 
-ULMFiT LM [imdb_scripts] for creating a LM (based on Wiki data) and fine-tuning it:
-
-- Create/Load Wiki Corpus
-- Tokenise text using [spacy](http://spacy.io/) includes fixup function <-
-- Mapp tokens to ids
-- (Pre)Train LM
-
-Further example of using LM for IMDb Sentiment Analysis with more detailed explanations/comments: [IMDb ipython](https://github.com/fastai/fastai/blob/master/courses/dl2/imdb.ipynb)
-
-### ULMFit for other languages
-
-- German **[forum](https://forums.fast.ai/t/ulmfit-german/22529)/[github](https://github.com/n-waves/ulmfit4de/blob/master/TRAINING.md)** fv0.7
-- French **[github](https://github.com/poppingtonic/dl-studies/blob/master/french-wiki-lm.ipynb)** fv1
-
-### German Corpa
-
-- [Wikipedia](http://www1.ids-mannheim.de/kl/projekte/korpora/archiv/wp.html)
-- [COSMA II](http://www.ids-mannheim.de/cosmas2/uebersicht.html)
-
-
-## Tasks - Applying the Language Model <a name="Tasks"></a>
-
-### English Tasks
-
-| Task                  | Model       | Corpus       | Score | Paper/Source |
-|-----------------------|-------------|--------------|-------|--------------|
-| Sentiment Analysis    | Transformer | [STT-2][STT] |  91.3 | [OpenAi]     |
-|                       | biLSTM      | STT-5        |  54.7 | [ELMo]       |
-| Named Entity Rec      | biLSTM      | [CoNNL 2003] | 90.15 | [ElMo]       |
-|                       |             |              | 91.93 | [Peters.]    |
-| Natural Language Inf  | Transformer | [SNLI 2015]  |  89.9 | [OpenAi]     |
-|                       | biLSTM      |              |  88.0 | [ELMo]       |
-| Commensense Reasoning | Transformer | [ROCStories] |  86.5 | [OpenAi]     |
-
-
-[STT]:https://nlp.stanford.edu/sentiment/index.html
 [CoNLL 2003]:https://www.clips.uantwerpen.be/conll2003/ner/
 [Peters.]:https://www.aclweb.org/anthology/P/P17/P17-1161.pdf
 [SNLI 2015]:https://nlp.stanford.edu/projects/snli/
 [ROCStories]:http://cs.rochester.edu/nlp/rocstories/
 
-### German Tasks
-
-| Task               | Model  | Corpus         | Score       | Paper/Source               |
-| --                 | ---    | ---            | ---         | ---                        |
-| Sentiment Analysis | CNN    | [SB-10k]       | 65.09       | [Twitter Corpus+Benchmark] |
-|                    | CNN    | MGS            | 59.90       |                            |
-|                    | SVM    | DAI            | 61.85       |                            |
-| Named Entity Rec   | biLSTM | [GermEval2014] | 81.83 (F1)* | [NER Shootout]             |
-|                    | biLSTM | [CoNNL2003]    | 82.99 (F1)  |                            |
-|                    |        |                |             |                            |
-*Outer chunks evaluation
-
-Related papers:
-- [Neural Architectures for Named Entity Recognition](https://arxiv.org/pdf/1603.01360.pdf)
-- [Modular Classifier Ensemble Architecture for Named Entity Recognition on Low Resource Systems](http://asv.informatik.uni-leipzig.de/publication/file/300/GermEval2014_ExB.pdf)
-
-
 [SB-10K]:http://www.spinningbytes.com/resources/
 [GermEval2014]:https://sites.google.com/site/germeval2014ner/data
 [CoNLL2011]:http://conll.cemantix.org/2011/data.html
 
-
 [Twitter Corpus+Benchmark]:http://www.aclweb.org/anthology/W17-1106
 [NER Shootout]:http://aclweb.org/anthology/P18-2020.pdf
-
-
-## Code <a name="Code"></a>
-
-`gc_setup.sh` installs the [fastai] library v0.7
-`wt103.sh` downloads the pre-trained [ULMFiT] weights
-create a directory `fastai-scripts` and link it to `fastai/courses/dl2/imbd_scripts/*`
-use the [imdb_scripts] to train/run/eval the LM
-
 [fastai]:https://github.com/fastai/fastai
 [imdb_scripts]:https://github.com/fastai/fastai/tree/master/courses/dl2/imdb_scripts
